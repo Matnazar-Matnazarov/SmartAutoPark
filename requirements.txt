@@ -1,0 +1,7 @@
+Django>=4.2
+djangorestframework>=3.14
+Pillow>=10.0       # ImageField ishlashi uchun (rasmlarni saqlash)
+drf-yasg>=1.21     # API dokumentatsiya uchun (swagger)
+django-cors-headers>=4.3  # frontend bilan bog‘lanish uchun
+python-dotenv>=1.0.0  # .env faylini ishlash uchun
+psycopg2-binary>=2.9.7
