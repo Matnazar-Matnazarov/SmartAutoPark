@@ -34,6 +34,7 @@ ALLOWED_HOSTS = ['192.168.1.115','127.0.0.1','localhost']
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'smartpark',
     'django.contrib.admin',
     'django.contrib.auth',
@@ -71,7 +72,18 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = "config.asgi.application"
+
 USER_MODEL = 'smartpark.CustomUser'
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
+}
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
@@ -134,3 +146,6 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+HOUR_PRICE = 4000

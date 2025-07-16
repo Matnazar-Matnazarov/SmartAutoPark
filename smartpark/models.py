@@ -29,26 +29,6 @@ class VehicleEntry(models.Model):
 
     def __str__(self):
         return f"{self.number_plate} - {self.entry_time.strftime('%Y-%m-%d %H:%M')}"
-
-    def save(self, *args, **kwargs):
-        for free_plate in FreePlate.objects.all():
-            if self.number_plate == free_plate.number_plate:
-                self.is_paid = True
-                self.total_amount = 0
-                break
-
-        for special_taxi in SpecialTaxi.objects.all():
-            if self.number_plate == special_taxi.number_plate:
-                today = timezone.now().date()
-                if DailyTaxiPayment.objects.filter(
-                    taxi=special_taxi,
-                    date=today
-                ).exists():
-                    self.is_paid = True
-                    self.total_amount = 0
-                    break
-        super().save(*args, **kwargs)
-
     
 
     class Meta:
