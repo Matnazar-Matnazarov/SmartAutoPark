@@ -12,6 +12,9 @@ from django.views.decorators.http import require_http_methods
 from django.contrib.auth.mixins import LoginRequiredMixin
 import json
 from datetime import datetime
+import xml.etree.ElementTree as ET
+import re
+
 
 class LoginView(View):
     def get(self, request):
@@ -38,55 +41,281 @@ class HomeView(LoginRequiredMixin, View):
         return render(request, 'home.html')
 
 
+def parse_hikvision_xml(xml_content):
+    """Parse Hikvision XML motion detection alert - extract ALL available data"""
+    try:
+        root = ET.fromstring(xml_content)
+        
+        # Initialize comprehensive data structure
+        all_data = {
+            'camera_info': {},
+            'event_info': {},
+            'channel_info': {},
+            'motion_info': {},
+            'raw_xml': xml_content,
+            'parsed_at': timezone.now().isoformat()
+        }
+        
+        # Extract all possible camera information
+        camera_elements = [
+            'ipAddress', 'macAddress', 'deviceID', 'deviceName', 
+            'deviceDescription', 'deviceLocation', 'systemContact',
+            'model', 'serialNumber', 'firmwareVersion', 'firmwareReleasedDate'
+        ]
+        
+        for element in camera_elements:
+            elem = root.find(f'.//{element}')
+            if elem is not None and elem.text:
+                all_data['camera_info'][element] = elem.text
+        
+        # Extract all possible event information
+        event_elements = [
+            'eventType', 'eventState', 'eventDescription', 'eventNotification',
+            'dateTime', 'activePostCount', 'eventTypeString', 'eventStateString',
+            'eventDescriptionString', 'eventNotificationString'
+        ]
+        
+        for element in event_elements:
+            elem = root.find(f'.//{element}')
+            if elem is not None and elem.text:
+                all_data['event_info'][element] = elem.text
+        
+        # Extract all possible channel information
+        channel_elements = [
+            'channelID', 'channelName', 'channelType', 'channelState',
+            'channelDescription', 'channelLocation'
+        ]
+        
+        for element in channel_elements:
+            elem = root.find(f'.//{element}')
+            if elem is not None and elem.text:
+                all_data['channel_info'][element] = elem.text
+        
+        # Extract motion detection specific information
+        motion_elements = [
+            'motionDetection', 'motionAlarm', 'motionState', 'motionRegion',
+            'motionSensitivity', 'motionThreshold', 'motionArea'
+        ]
+        
+        for element in motion_elements:
+            elem = root.find(f'.//{element}')
+            if elem is not None and elem.text:
+                all_data['motion_info'][element] = elem.text
+        
+        # Also extract any other elements that might exist
+        other_elements = []
+        for elem in root.iter():
+            if elem.text and elem.text.strip():
+                tag = elem.tag
+                if (tag not in camera_elements and 
+                    tag not in event_elements and 
+                    tag not in channel_elements and 
+                    tag not in motion_elements):
+                    other_elements.append({
+                        'tag': tag,
+                        'value': elem.text.strip(),
+                        'attributes': dict(elem.attrib) if elem.attrib else {}
+                    })
+        
+        if other_elements:
+            all_data['other_elements'] = other_elements
+        
+        # Create a summary for easy access
+        all_data['summary'] = {
+            'camera_ip': all_data['camera_info'].get('ipAddress'),
+            'camera_name': all_data['camera_info'].get('deviceName'),
+            'channel_id': all_data['channel_info'].get('channelID'),
+            'channel_name': all_data['channel_info'].get('channelName'),
+            'event_type': all_data['event_info'].get('eventType'),
+            'event_state': all_data['event_info'].get('eventState'),
+            'date_time': all_data['event_info'].get('dateTime'),
+            'total_elements_found': len([k for k in all_data.keys() if k not in ['raw_xml', 'parsed_at', 'summary']])
+        }
+        
+        return all_data
+        
+    except Exception as e:
+        print(f"Error parsing XML: {e}")
+        return {
+            'error': str(e),
+            'raw_xml': xml_content,
+            'parsed_at': timezone.now().isoformat()
+        }
+
+
 @csrf_exempt
 def receive_entry(request):
     if request.method == "POST":
-        from pprint import pprint
-        print("\n========== POST keldi ==========")
-        print("Headers:")
-        pprint(dict(request.headers))
-        print("\nBody (bytes, first 100):")
-        print(request.body)
-        number_plate = request.POST.get('number_plate')
-        print("Number Plate:", number_plate)
+  
         
-        if number_plate:
-            try:
-                # Fix: get_or_create returns a tuple (object, created)
-                car, created = Cars.objects.get_or_create(number_plate=number_plate)
+        # Check if this is a Hikvision XML alert
+        content_type = request.headers.get('Content-Type', '')
+        body_str = request.body.decode('utf-8', errors='ignore')
+        
+        # Check for XML content in the request
+        if '<?xml' in body_str or 'MoveDetection.xml' in body_str:
+            
+            # Extract XML content
+            xml_content = None
+            
+            # Method 1: Try to get from POST data
+            for key, value in request.POST.items():
+                if key == 'MoveDetection.xml':
+                    xml_content = value
+                    break
+            
+            # Method 2: Extract from request body using regex
+            if not xml_content:
+                xml_match = re.search(r'<\?xml.*?</EventNotificationAlert>', body_str, re.DOTALL)
+                if xml_match:
+                    xml_content = xml_match.group(0)
+            
+            # Method 3: Look for XML between boundaries
+            if not xml_content:
+                boundary_match = re.search(r'--boundary\r\n.*?Content-Type: application/xml.*?\r\n\r\n(.*?)\r\n--boundary', body_str, re.DOTALL)
+                if boundary_match:
+                    xml_content = boundary_match.group(1)
+            
+            if xml_content:
+                all_data = parse_hikvision_xml(xml_content)
                 
-                if car.is_free and not car.is_blocked:
-                    VehicleEntry.objects.create(
-                        number_plate=number_plate,
-                        entry_image=request.FILES.get('entry_image'),
-                        total_amount=0,
-                    )
-                elif car.is_special_taxi and not car.is_blocked:
-                    today = timezone.now().date()
-                    if VehicleEntry.objects.filter(number_plate=number_plate, entry_time__date=today).exists():
-                        VehicleEntry.objects.create(
-                            number_plate=number_plate,
-                            entry_image=request.FILES.get('entry_image'),
-                            total_amount=0,
-                        )
-                    else:
-                        VehicleEntry.objects.create(
-                            number_plate=number_plate,
-                            entry_image=request.FILES.get('entry_image'),
-                            total_amount=0,
-                        )
+                if all_data and 'error' not in all_data:
+                    if all_data['summary']['total_elements_found'] > 0:
+                        print("\n" + "="*60)
+                        print("📊 HIKVISION XML DATA EXTRACTION RESULTS")
+                        print("="*60)
+                        
+                        # Display camera information
+                        if all_data['camera_info']:
+                            print("\n📷 CAMERA INFORMATION:")
+                            for key, value in all_data['camera_info'].items():
+                                print(f"   {key}: {value}")
+                        
+                        # Display event information
+                        if all_data['event_info']:
+                            print("\n🔔 EVENT INFORMATION:")
+                            for key, value in all_data['event_info'].items():
+                                print(f"   {key}: {value}")
+                        
+                        # Display channel information
+                        if all_data['channel_info']:
+                            print("\n📺 CHANNEL INFORMATION:")
+                            for key, value in all_data['channel_info'].items():
+                                print(f"   {key}: {value}")
+                        
+                        # Display motion information
+                        if all_data['motion_info']:
+                            print("\n🎯 MOTION DETECTION INFORMATION:")
+                            for key, value in all_data['motion_info'].items():
+                                print(f"   {key}: {value}")
+                        
+                        # Display other elements
+                        if all_data.get('other_elements'):
+                            print("\n🔍 OTHER ELEMENTS FOUND:")
+                            for elem in all_data['other_elements']:
+                                print(f"   {elem['tag']}: {elem['value']}")
+                                if elem['attributes']:
+                                    print(f"      Attributes: {elem['attributes']}")
+                        
+                        # Display summary
+                        print(f"\n📋 SUMMARY:")
+                        print(f"   Total data categories: {all_data['summary']['total_elements_found']}")
+                        print(f"   Camera IP: {all_data['summary']['camera_ip']}")
+                        print(f"   Camera Name: {all_data['summary']['camera_name']}")
+                        print(f"   Channel: {all_data['summary']['channel_name']} (ID: {all_data['summary']['channel_id']})")
+                        print(f"   Event: {all_data['summary']['event_type']} - {all_data['summary']['event_state']}")
+                        print(f"   Time: {all_data['summary']['date_time']}")
+                        print("="*60)
+                        
+                        # Generate a temporary number plate based on timestamp and camera info
+                        timestamp = timezone.now().strftime('%H%M%S')
+                        camera_id = all_data['summary'].get('channel_id', '01')
+                        number_plate = f"TEMP{camera_id}{timestamp}"
+                        
+                        # Create vehicle entry
+                        try:
+                            car, created = Cars.objects.get_or_create(number_plate=number_plate)
+                            
+                            # Create vehicle entry with motion detection data
+                            entry = VehicleEntry.objects.create(
+                                number_plate=number_plate,
+                                total_amount=0,
+                            )
+                            
+                            print(f"\n✅ Vehicle entry created: {number_plate}")
+                            
+                            return JsonResponse({
+                                "status": "ok",
+                                "message": "Motion detection processed successfully",
+                                "number_plate": number_plate,
+                                "extracted_data": all_data,
+                                "summary": all_data['summary']
+                            })
+                            
+                        except Exception as e:
+                            print(f"❌ Error creating vehicle entry: {e}")
+                            return JsonResponse({"error": str(e)}, status=500)
+                   
                 else:
-                    if not car.is_blocked:
+                    print("❌ Failed to parse XML data")
+                    return JsonResponse({"error": "XML parsing failed"}, status=400)
+            else:
+                    print("❌ Failed to parse XML data")
+                    if all_data and 'error' in all_data:
+                        print(f"Error details: {all_data['error']}")
+                        print(f"Raw XML: {all_data['raw_xml'][:500]}...")
+                    return JsonResponse({
+                        "error": "XML parsing failed", 
+                        "details": all_data.get('error', 'Unknown error') if all_data else 'Unknown error',
+                        "raw_xml_preview": all_data.get('raw_xml', '')[:500] if all_data else 'No XML content'
+                    }, status=400)
+        
+        else:
+            # Handle regular form data (manual entry)
+            number_plate = request.POST.get('number_plate')
+            print(f"🚗 Manual entry - Number Plate: {number_plate}")
+            
+            if number_plate:
+                try:
+                    car, created = Cars.objects.get_or_create(number_plate=number_plate)
+                    
+                    if car.is_free and not car.is_blocked:
                         VehicleEntry.objects.create(
                             number_plate=number_plate,
                             entry_image=request.FILES.get('entry_image'),
                             total_amount=0,
                         )
-                
-                print("Vehicle entry created successfully")
-            except Exception as e:
-                print(f"Error creating vehicle entry: {e}")
-                return JsonResponse({"error": str(e)}, status=500)
+                    elif car.is_special_taxi and not car.is_blocked:
+                        today = timezone.now().date()
+                        if VehicleEntry.objects.filter(number_plate=number_plate, entry_time__date=today).exists():
+                            VehicleEntry.objects.create(
+                                number_plate=number_plate,
+                                entry_image=request.FILES.get('entry_image'),
+                                total_amount=0,
+                            )
+                        else:
+                            VehicleEntry.objects.create(
+                                number_plate=number_plate,
+                                entry_image=request.FILES.get('entry_image'),
+                                total_amount=0,
+                            )
+                    else:
+                        if not car.is_blocked:
+                            VehicleEntry.objects.create(
+                                number_plate=number_plate,
+                                entry_image=request.FILES.get('entry_image'),
+                                total_amount=0,
+                            )
+                    
+                    print("✅ Vehicle entry created successfully")
+                    return JsonResponse({"status": "ok", "number_plate": number_plate})
+                    
+                except Exception as e:
+                    print(f"❌ Error creating vehicle entry: {e}")
+                    return JsonResponse({"error": str(e)}, status=500)
+            else:
+                print("❌ No number plate provided")
+                return JsonResponse({"error": "Number plate is required"}, status=400)
 
         print("================================\n")
         return JsonResponse({"status": "ok"})
@@ -96,52 +325,142 @@ def receive_entry(request):
 def receive_exit(request):
     if request.method == "POST":
         from pprint import pprint
-        print("\n========== POST keldi ==========")
+        print("\n========== HIKVISION CAMERA EXIT POST ==========")
         print("Headers:")
         pprint(dict(request.headers))
-        print("\nBody (bytes, first 100):")
-        print(request.body)
-        number_plate = request.POST.get('number_plate')
-        print("Number Plate:", number_plate)
+        print("\nBody (bytes, first 300):")
+        print(request.body[:300])
         
-        if number_plate:
-            try:
-                # Fix: get_or_create returns a tuple (object, created)
-                car, created = Cars.objects.get_or_create(number_plate=number_plate)
-                today = timezone.now().date()
+        # Check if this is a Hikvision XML alert
+        content_type = request.headers.get('Content-Type', '')
+        body_str = request.body.decode('utf-8', errors='ignore')
+        
+        # Check for XML content in the request
+        if '<?xml' in body_str or 'MoveDetection.xml' in body_str:
+            print("📹 Hikvision exit detection alert received")
+            
+            # Extract XML content
+            xml_content = None
+            
+            # Method 1: Try to get from POST data
+            for key, value in request.POST.items():
+                if key == 'MoveDetection.xml':
+                    xml_content = value
+                    break
+            
+            # Method 2: Extract from request body using regex
+            if not xml_content:
+                xml_match = re.search(r'<\?xml.*?</EventNotificationAlert>', body_str, re.DOTALL)
+                if xml_match:
+                    xml_content = xml_match.group(0)
+            
+            # Method 3: Look for XML between boundaries
+            if not xml_content:
+                boundary_match = re.search(r'--boundary\r\n.*?Content-Type: application/xml.*?\r\n\r\n(.*?)\r\n--boundary', body_str, re.DOTALL)
+                if boundary_match:
+                    xml_content = boundary_match.group(1)
+            
+            if xml_content:
+                print(f"📄 XML Content found: {xml_content[:200]}...")
+                event_data = parse_hikvision_xml(xml_content)
                 
-                # Get the latest entry for this car today
-                latest_entry = VehicleEntry.objects.filter(
-                    number_plate=number_plate, 
-                    entry_time__date=today
-                ).order_by('-entry_time').first()
-                
-                if latest_entry:
-                    if car.is_free:
-                        latest_entry.exit_image = request.FILES.get('exit_image')
-                        latest_entry.total_amount = 0
+                if event_data:
+                    print(f"📊 Exit Event Data: {event_data}")
+                    
+                    # Generate a temporary number plate based on timestamp and camera info
+                    timestamp = timezone.now().strftime('%H%M%S')
+                    camera_id = event_data.get('channel_id', '01')
+                    number_plate = f"TEMP{camera_id}{timestamp}"
+                    
+                    # Find the latest entry for this car today
+                    today = timezone.now().date()
+                    latest_entry = VehicleEntry.objects.filter(
+                        number_plate__startswith=f"TEMP{camera_id}",
+                        entry_time__date=today
+                    ).order_by('-entry_time').first()
+                    
+                    if latest_entry:
+                        # Update the exit time and calculate amount
                         latest_entry.exit_time = timezone.now()
+                        latest_entry.total_amount = latest_entry.calculate_amount()
                         latest_entry.save()
-                    elif car.is_special_taxi and not car.is_blocked:
-                        latest_entry.exit_image = request.FILES.get('exit_image')
-                        latest_entry.total_amount = 0
-                        latest_entry.exit_time = timezone.now()
-                        latest_entry.save()
+                        
+                        print(f"✅ Vehicle exit updated: {latest_entry.number_plate}")
+                        print(f"📹 Exit detected at: {event_data.get('date_time')}")
+                        print(f"📷 Camera: {event_data.get('channel_name')} (IP: {event_data.get('ip_address')})")
+                        print(f"💰 Amount: {latest_entry.total_amount} so'm")
+                        
+                        return JsonResponse({
+                            "status": "ok",
+                            "message": "Exit detection processed",
+                            "number_plate": latest_entry.number_plate,
+                            "event_data": event_data,
+                            "camera_ip": event_data.get('ip_address'),
+                            "camera_channel": event_data.get('channel_id'),
+                            "event_time": event_data.get('date_time'),
+                            "amount": latest_entry.total_amount
+                        })
                     else:
-                        if not car.is_blocked:
-                            latest_entry.exit_image = request.FILES.get('exit_image')
-                            latest_entry.exit_time = timezone.now()
-                            latest_entry.total_amount = latest_entry.calculate_amount()
-                            latest_entry.save()
-                    
-                    print("Vehicle exit updated successfully")
+                        print("❌ No entry found for exit")
+                        return JsonResponse({"error": "No entry found for exit"}, status=404)
+                        
                 else:
-                    print("No entry found for this car today")
-                    return JsonResponse({"error": "No entry found for this car today"}, status=404)
+                    print("❌ Failed to parse XML data")
+                    return JsonResponse({"error": "Invalid XML format"}, status=400)
+            else:
+                print("❌ No XML content found in request")
+                return JsonResponse({"error": "No XML content"}, status=400)
+        
+        else:
+            # Handle regular form data (manual exit)
+            number_plate = request.POST.get('number_plate')
+            print(f"🚗 Manual exit - Number Plate: {number_plate}")
+            
+            if number_plate:
+                try:
+                    car, created = Cars.objects.get_or_create(number_plate=number_plate)
+                    today = timezone.now().date()
                     
-            except Exception as e:
-                print(f"Error updating vehicle exit: {e}")
-                return JsonResponse({"error": str(e)}, status=500)
+                    # Get the latest entry for this car today
+                    latest_entry = VehicleEntry.objects.filter(
+                        number_plate=number_plate, 
+                        entry_time__date=today
+                    ).order_by('-entry_time').first()
+                    
+                    if latest_entry:
+                        if car.is_free:
+                            latest_entry.exit_image = request.FILES.get('exit_image')
+                            latest_entry.total_amount = 0
+                            latest_entry.exit_time = timezone.now()
+                            latest_entry.save()
+                        elif car.is_special_taxi and not car.is_blocked:
+                            latest_entry.exit_image = request.FILES.get('exit_image')
+                            latest_entry.total_amount = 0
+                            latest_entry.exit_time = timezone.now()
+                            latest_entry.save()
+                        else:
+                            if not car.is_blocked:
+                                latest_entry.exit_image = request.FILES.get('exit_image')
+                                latest_entry.exit_time = timezone.now()
+                                latest_entry.total_amount = latest_entry.calculate_amount()
+                                latest_entry.save()
+                        
+                        print("✅ Vehicle exit updated successfully")
+                        return JsonResponse({
+                            "status": "ok", 
+                            "number_plate": number_plate,
+                            "amount": latest_entry.total_amount
+                        })
+                    else:
+                        print("❌ No entry found for this car today")
+                        return JsonResponse({"error": "No entry found for this car today"}, status=404)
+                        
+                except Exception as e:
+                    print(f"❌ Error updating vehicle exit: {e}")
+                    return JsonResponse({"error": str(e)}, status=500)
+            else:
+                print("❌ No number plate provided")
+                return JsonResponse({"error": "Number plate is required"}, status=400)
 
         print("================================\n")
         return JsonResponse({"status": "ok"})
