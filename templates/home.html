@@ -20,6 +20,36 @@
     .primary-btn:hover {
       background-color: #01996D;
     }
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+    }
+    .modal-content {
+      background-color: white;
+      margin: 15% auto;
+      padding: 20px;
+      border-radius: 10px;
+      width: 80%;
+      max-width: 500px;
+    }
+    .notification-info {
+      background-color: #2196F3;
+      color: white;
+    }
+    .notification-success {
+      background-color: #4CAF50;
+      color: white;
+    }
+    .notification-error {
+      background-color: #f44336;
+      color: white;
+    }
   </style>
 </head>
 <body class="min-h-screen font-sans">
@@ -41,18 +71,18 @@
         <div class="flex justify-between w-full mb-4 text-[#1E2A38]">
           <div class="flex flex-col items-center">
             <span class="text-base opacity-70">Kirish:</span>
-            <span class="text-xl font-mono font-semibold">08:00</span>
+            <span class="text-xl font-mono font-semibold" id="entry-time">--:--</span>
           </div>
           <div class="flex flex-col items-center">
             <span class="text-base opacity-70">Chiqish:</span>
-            <span class="text-xl font-mono font-semibold">09:00</span>
+            <span class="text-xl font-mono font-semibold" id="exit-time">--:--</span>
           </div>
         </div>
         <div class="my-5 flex flex-col items-center">
-          <div class="text-4xl font-extrabold tracking-widest text-[#1E2A38] bg-[#F4F6F8] px-8 py-4 rounded-xl border border-slate-200 shadow-inner select-all">30A123FA</div>
-          <div class="mt-4 text-[#00B894] text-2xl font-bold">4 000 so‘m</div>
+          <div class="text-4xl font-extrabold tracking-widest text-[#1E2A38] bg-[#F4F6F8] px-8 py-4 rounded-xl border border-slate-200 shadow-inner select-all" id="current-plate">--</div>
+          <div class="mt-4 text-[#00B894] text-2xl font-bold" id="current-amount">0 so'm</div>
         </div>
-        <button class="primary-btn px-8 py-3 text-lg font-bold w-full mt-2 shadow hover:scale-105">Chek chiqarish</button>
+        <button class="primary-btn px-8 py-3 text-lg font-bold w-full mt-2 shadow hover:scale-105" id="print-receipt" disabled>Chek chiqarish</button>
       </div>
 
       <!-- Statistika & Zapret -->
@@ -60,31 +90,34 @@
         <div class="grid grid-cols-3 text-center gap-4 mb-6">
           <div>
             <p class="text-sm text-gray-400">Bugun kirganlar</p>
-            <p class="text-2xl font-bold text-[#1E2A38]">85</p>
+            <p class="text-2xl font-bold text-[#1E2A38]" id="total-entries">0</p>
           </div>
           <div>
             <p class="text-sm text-gray-400">Chiqanlar</p>
-            <p class="text-2xl font-bold text-[#1E2A38]">79</p>
+            <p class="text-2xl font-bold text-[#1E2A38]" id="total-exits">0</p>
           </div>
           <div>
             <p class="text-sm text-gray-400">Ichkarida</p>
-            <p class="text-2xl font-bold text-[#1E2A38]">6</p>
+            <p class="text-2xl font-bold text-[#1E2A38]" id="total-inside">0</p>
           </div>
         </div>
-        <form class="flex flex-col gap-3 w-full mt-2" autocomplete="off">
-          <label class="text-base text-[#1E2A38] font-semibold">Zapretga raqam qo‘shish</label>
+        
+        <!-- Date Filter -->
+        <div class="mb-4">
+          <label class="text-base text-[#1E2A38] font-semibold mb-1 block">Sana tanlash</label>
+          <input type="date" id="date-filter" class="border border-gray-300 rounded-lg px-3 py-2 w-full focus:ring-2 focus:ring-[#00B894] outline-none transition">
+        </div>
+        
+        <form class="flex flex-col gap-3 w-full mt-2" autocomplete="off" id="block-form">
+          <label class="text-base text-[#1E2A38] font-semibold">Zapretga raqam qo'shish</label>
           <div class="flex gap-2">
-            <input type="text" placeholder="30A123FA" class="border border-gray-300 rounded-lg px-3 py-2 w-full focus:ring-2 focus:ring-[#00B894] outline-none transition" />
-            <button class="primary-btn px-4">Qo‘shish</button>
+            <input type="text" id="block-plate" placeholder="30A123FA" class="border border-gray-300 rounded-lg px-3 py-2 w-full focus:ring-2 focus:ring-[#00B894] outline-none transition" />
+            <button type="submit" class="primary-btn px-4">Qo'shish</button>
           </div>
         </form>
-        <div class="mt-3">
-          <label class="text-base text-[#1E2A38] font-semibold mb-1 block">Filtr: Kunlik / Oylik</label>
-          <select class="border border-gray-300 rounded-lg w-full px-3 py-2 focus:ring-2 focus:ring-[#00B894] outline-none transition">
-            <option>Bugungi</option>
-            <option>Oylik</option>
-          </select>
-        </div>
+        
+        <!-- Add Car Button -->
+        <button class="mt-3 primary-btn px-4 py-2 w-full" onclick="openAddCarModal()">Avtomobil qo'shish</button>
       </div>
 
       <!-- Navigatsiya tugmalari -->
@@ -99,23 +132,315 @@
     <!-- Oxirgi kirganlar -->
     <section class="mt-8 bg-white rounded-2xl shadow-lg p-6 max-w-4xl mx-auto">
       <h2 class="text-base font-bold text-[#1E2A38] mb-4">Oxirgi kirganlar</h2>
-      <div class="divide-y divide-gray-100">
-        <div class="flex justify-between items-center py-3">
-          <span class="font-semibold text-[#1E2A38]">30A123FA — 08:33</span>
-          <button class="primary-btn px-4 py-1 text-base">Chek</button>
-        </div>
-        <div class="flex justify-between items-center py-3">
-          <span class="font-semibold text-[#1E2A38]">50B456BB — 08:29</span>
-          <button class="primary-btn px-4 py-1 text-base">Chek</button>
-        </div>
-        <div class="flex justify-between items-center py-3">
-          <span class="font-semibold text-[#1E2A38]">90C789CC — 08:27</span>
-          <button class="primary-btn px-4 py-1 text-base">Chek</button>
-        </div>
+      <div class="divide-y divide-gray-100" id="entries-list">
+        <!-- Entries will be populated here -->
       </div>
     </section>
   </div>
 
+  <!-- Add Car Modal -->
+  <div id="addCarModal" class="modal">
+    <div class="modal-content">
+      <h2 class="text-xl font-bold mb-4">Avtomobil qo'shish</h2>
+      <form id="addCarForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Raqam</label>
+          <input type="text" id="car-number" placeholder="30A123FA" required class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-[#00B894] outline-none">
+        </div>
+        <div class="space-y-2">
+          <label class="flex items-center">
+            <input type="checkbox" id="is-free" class="rounded border-gray-300 text-[#00B894] focus:ring-[#00B894]">
+            <span class="ml-2 text-sm text-gray-700">Bepul</span>
+          </label>
+          <label class="flex items-center">
+            <input type="checkbox" id="is-special-taxi" class="rounded border-gray-300 text-[#00B894] focus:ring-[#00B894]">
+            <span class="ml-2 text-sm text-gray-700">Maxsus taksi</span>
+          </label>
+          <label class="flex items-center">
+            <input type="checkbox" id="is-blocked" class="rounded border-gray-300 text-[#00B894] focus:ring-[#00B894]">
+            <span class="ml-2 text-sm text-gray-700">Bloklangan</span>
+          </label>
+        </div>
+        <div class="flex gap-2">
+          <button type="submit" class="primary-btn px-4 py-2 flex-1">Qo'shish</button>
+          <button type="button" onclick="closeAddCarModal()" class="bg-gray-500 text-white px-4 py-2 rounded-lg flex-1">Bekor</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
+  <script>
+    let socket;
+    let currentEntry = null;
+
+    // Initialize WebSocket connection
+    function initWebSocket() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws/home/`;
+      
+      socket = new WebSocket(wsUrl);
+      
+      socket.onopen = function(e) {
+        console.log('WebSocket connected');
+        loadInitialData();
+      };
+      
+      socket.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        handleWebSocketMessage(data);
+      };
+      
+      socket.onclose = function(e) {
+        console.log('WebSocket disconnected');
+        // Reconnect after 5 seconds
+        setTimeout(initWebSocket, 5000);
+      };
+      
+      socket.onerror = function(e) {
+        console.error('WebSocket error:', e);
+      };
+    }
+
+    // Handle WebSocket messages
+    function handleWebSocketMessage(data) {
+      switch(data.type) {
+        case 'statistics_update':
+          updateStatistics(data.data);
+          break;
+        case 'vehicle_entries_update':
+          updateVehicleEntries(data.data);
+          break;
+        case 'payment_update':
+          handlePaymentUpdate(data.data);
+          break;
+        case 'car_added':
+          handleCarAdded(data.data);
+          break;
+        case 'car_blocked':
+          handleCarBlocked(data.data);
+          break;
+        case 'model_update':
+          handleModelUpdate(data);
+          break;
+        case 'car_update':
+          handleCarUpdate(data);
+          break;
+      }
+    }
+
+    // Handle model updates from signals
+    function handleModelUpdate(data) {
+      // Update statistics
+      updateStatistics(data.statistics);
+      
+      // Update vehicle entries
+      updateVehicleEntries(data.vehicle_entries);
+      
+      // Show notification based on action
+      let message = '';
+      switch(data.action) {
+        case 'created':
+          message = `Yangi avtomobil kirdi: ${data.number_plate}`;
+          break;
+        case 'updated':
+          message = `Avtomobil ma'lumotlari yangilandi: ${data.number_plate}`;
+          break;
+        case 'deleted':
+          message = `Avtomobil ma'lumotlari o'chirildi: ${data.number_plate}`;
+          break;
+      }
+      
+      if (message) {
+        showNotification(message, 'info');
+      }
+    }
+
+    // Handle car updates from signals
+    function handleCarUpdate(data) {
+      let message = '';
+      switch(data.action) {
+        case 'created':
+          message = `Yangi avtomobil qo'shildi: ${data.car.number_plate}`;
+          break;
+        case 'updated':
+          message = `Avtomobil ma'lumotlari yangilandi: ${data.car.number_plate}`;
+          break;
+        case 'deleted':
+          message = `Avtomobil o'chirildi: ${data.car.number_plate}`;
+          break;
+      }
+      
+      if (message) {
+        showNotification(message, 'info');
+      }
+    }
+
+    // Load initial data
+    function loadInitialData() {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('date-filter').value = today;
+      
+      socket.send(JSON.stringify({
+        type: 'get_statistics',
+        date: today
+      }));
+      
+      socket.send(JSON.stringify({
+        type: 'get_vehicle_entries',
+        date: today
+      }));
+    }
+
+    // Update statistics
+    function updateStatistics(stats) {
+      document.getElementById('total-entries').textContent = stats.total_entries;
+      document.getElementById('total-exits').textContent = stats.total_exits;
+      document.getElementById('total-inside').textContent = stats.total_inside;
+    }
+
+    // Update vehicle entries
+    function updateVehicleEntries(entries) {
+      const entriesList = document.getElementById('entries-list');
+      entriesList.innerHTML = '';
+      
+      entries.forEach(entry => {
+        const entryDiv = document.createElement('div');
+        entryDiv.className = 'flex justify-between items-center py-3';
+        
+        const statusClass = entry.is_paid ? 'text-green-600' : 'text-red-600';
+        const statusText = entry.is_paid ? 'To\'langan' : 'To\'lanmagan';
+        
+        entryDiv.innerHTML = `
+          <div class="flex flex-col">
+            <span class="font-semibold text-[#1E2A38]">${entry.number_plate} — ${entry.entry_time}</span>
+            <span class="text-sm text-gray-500">${entry.total_amount} so'm - ${statusText}</span>
+          </div>
+          ${entry.exit_time && !entry.is_paid ? 
+            `<button class="primary-btn px-4 py-1 text-base" onclick="markAsPaid(${entry.id})">To'lov</button>` : 
+            `<span class="text-sm ${statusClass}">${statusText}</span>`
+          }
+        `;
+        
+        entriesList.appendChild(entryDiv);
+      });
+    }
+
+    // Mark entry as paid
+    function markAsPaid(entryId) {
+      socket.send(JSON.stringify({
+        type: 'mark_as_paid',
+        entry_id: entryId
+      }));
+    }
+
+    // Handle payment update
+    function handlePaymentUpdate(data) {
+      if (data.success) {
+        // Reload data after payment
+        loadInitialData();
+        showNotification('To\'lov muvaffaqiyatli amalga oshirildi', 'success');
+      } else {
+        showNotification('Xatolik yuz berdi: ' + data.error, 'error');
+      }
+    }
+
+    // Add car modal functions
+    function openAddCarModal() {
+      document.getElementById('addCarModal').style.display = 'block';
+    }
+
+    function closeAddCarModal() {
+      document.getElementById('addCarModal').style.display = 'none';
+      document.getElementById('addCarForm').reset();
+    }
+
+    // Handle car added
+    function handleCarAdded(data) {
+      if (data.success) {
+        showNotification('Avtomobil muvaffaqiyatli qo\'shildi', 'success');
+        closeAddCarModal();
+      } else {
+        showNotification('Xatolik yuz berdi: ' + data.error, 'error');
+      }
+    }
+
+    // Handle car blocked
+    function handleCarBlocked(data) {
+      if (data.success) {
+        showNotification('Avtomobil bloklandi', 'success');
+        document.getElementById('block-plate').value = '';
+      } else {
+        showNotification('Xatolik yuz berdi: ' + data.error, 'error');
+      }
+    }
+
+    // Show notification
+    function showNotification(message, type) {
+      const notification = document.createElement('div');
+      const bgClass = type === 'success' ? 'notification-success' : 
+                     type === 'error' ? 'notification-error' : 
+                     type === 'info' ? 'notification-info' : 'notification-info';
+      
+      notification.className = `fixed top-4 right-4 p-4 rounded-lg text-white z-50 ${bgClass}`;
+      notification.textContent = message;
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.remove();
+      }, 3000);
+    }
+
+    // Event listeners
+    document.addEventListener('DOMContentLoaded', function() {
+      initWebSocket();
+      
+      // Date filter change
+      document.getElementById('date-filter').addEventListener('change', function() {
+        const selectedDate = this.value;
+        socket.send(JSON.stringify({
+          type: 'get_statistics',
+          date: selectedDate
+        }));
+        socket.send(JSON.stringify({
+          type: 'get_vehicle_entries',
+          date: selectedDate
+        }));
+      });
+      
+      // Block car form
+      document.getElementById('block-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const numberPlate = document.getElementById('block-plate').value.trim();
+        if (numberPlate) {
+          socket.send(JSON.stringify({
+            type: 'block_car',
+            number_plate: numberPlate
+          }));
+        }
+      });
+      
+      // Add car form
+      document.getElementById('addCarForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const carData = {
+          type: 'add_car',
+          number_plate: document.getElementById('car-number').value.trim(),
+          is_free: document.getElementById('is-free').checked,
+          is_special_taxi: document.getElementById('is-special-taxi').checked,
+          is_blocked: document.getElementById('is-blocked').checked
+        };
+        
+        socket.send(JSON.stringify(carData));
+      });
+      
+      // Close modal when clicking outside
+      window.onclick = function(event) {
+        const modal = document.getElementById('addCarModal');
+        if (event.target === modal) {
+          closeAddCarModal();
+        }
+      };
+    });
+  </script>
 </body>
 </html>

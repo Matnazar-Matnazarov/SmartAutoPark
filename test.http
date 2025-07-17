@@ -1,0 +1,233 @@
+### Smart AutoPark API Tests
+
+# Base URL - smartpark.urls is included at root path, so API endpoints are directly under /
+@baseUrl = http://localhost:8000
+
+### 1. Login
+POST {{baseUrl}}/login/
+Content-Type: application/x-www-form-urlencoded
+
+username=operator&password=password123
+
+### 2. Logout
+POST {{baseUrl}}/logout/
+Content-Type: application/x-www-form-urlencoded
+
+### 3. Get Statistics for Today
+GET {{baseUrl}}/api/statistics/
+Content-Type: application/json
+
+### 4. Get Statistics for Specific Date
+GET {{baseUrl}}/api/statistics/?date=2024-01-15
+Content-Type: application/json
+
+### 5. Get Vehicle Entries for Today
+GET {{baseUrl}}/api/vehicle-entries/
+Content-Type: application/json
+
+### 6. Get Vehicle Entries for Specific Date
+GET {{baseUrl}}/api/vehicle-entries/?date=2024-01-15
+Content-Type: application/json
+
+### 7. Mark Vehicle Entry as Paid
+POST {{baseUrl}}/api/mark-paid/
+Content-Type: application/json
+
+{
+    "entry_id": 1
+}
+
+### 8. Add New Car
+POST {{baseUrl}}/api/add-car/
+Content-Type: application/json
+
+{
+    "number_plate": "30A123FA",
+    "is_free": false,
+    "is_special_taxi": false,
+    "is_blocked": false
+}
+
+### 9. Add Free Car
+POST {{baseUrl}}/api/add-car/
+Content-Type: application/json
+
+{
+    "number_plate": "50B456BB",
+    "is_free": true,
+    "is_special_taxi": false,
+    "is_blocked": false
+}
+
+### 10. Add Special Taxi
+POST {{baseUrl}}/api/add-car/
+Content-Type: application/json
+
+{
+    "number_plate": "90C789CC",
+    "is_free": false,
+    "is_special_taxi": true,
+    "is_blocked": false
+}
+
+### 11. Add Blocked Car
+POST {{baseUrl}}/api/add-car/
+Content-Type: application/json
+
+{
+    "number_plate": "70D999DD",
+    "is_free": false,
+    "is_special_taxi": false,
+    "is_blocked": true
+}
+
+### 12. Block Existing Car
+POST {{baseUrl}}/api/block-car/
+Content-Type: application/json
+
+{
+    "number_plate": "30A123FA"
+}
+
+### 13. Vehicle Entry (with image) - CORRECTED URL
+POST {{baseUrl}}/receive-entry/
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="number_plate"
+
+30A123FD
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="entry_image"; filename="entry.jpg"
+Content-Type: image/jpeg
+
+< ./test_images/entry.jpg
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 14. Vehicle Exit (with image) - CORRECTED URL
+POST {{baseUrl}}/receive-exit/
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="number_plate"
+
+30A123FD
+------WebKitFormBoundary7MA4YWxkTrZu0gW
+Content-Disposition: form-data; name="exit_image"; filename="exit.jpg"
+Content-Type: image/jpeg
+
+< ./test_images/exit.jpg
+------WebKitFormBoundary7MA4YWxkTrZu0gW--
+
+### 15. Error Test - Mark Non-existent Entry as Paid
+POST {{baseUrl}}/api/mark-paid/
+Content-Type: application/json
+
+{
+    "entry_id": 99999
+}
+
+### 16. Error Test - Block Non-existent Car
+POST {{baseUrl}}/api/block-car/
+Content-Type: application/json
+
+{
+    "number_plate": "NONEXISTENT"
+}
+
+### 17. Error Test - Add Car without Number Plate
+POST {{baseUrl}}/api/add-car/
+Content-Type: application/json
+
+{
+    "is_free": true,
+    "is_special_taxi": false,
+    "is_blocked": false
+}
+
+### 18. Update Existing Car
+POST {{baseUrl}}/api/add-car/
+Content-Type: application/json
+
+{
+    "number_plate": "30A123FA",
+    "is_free": true,
+    "is_special_taxi": true,
+    "is_blocked": false
+}
+
+### 19. Get Statistics for Invalid Date
+GET {{baseUrl}}/api/statistics/?date=invalid-date
+Content-Type: application/json
+
+### 20. Get Vehicle Entries for Invalid Date
+GET {{baseUrl}}/api/vehicle-entries/?date=invalid-date
+Content-Type: application/json
+
+### 21. Test Home Page Redirect
+GET {{baseUrl}}/
+Content-Type: application/json
+
+### 22. Test Home Page Direct Access
+GET {{baseUrl}}/home/
+Content-Type: application/json
+
+### 23. WebSocket Connection Test (Note: This requires a WebSocket client)
+# WebSocket URL: ws://localhost:8000/ws/home/
+# 
+# Test Messages to send:
+# 
+# 1. Get Statistics:
+# {
+#   "type": "get_statistics",
+#   "date": "2024-01-15"
+# }
+# 
+# 2. Get Vehicle Entries:
+# {
+#   "type": "get_vehicle_entries",
+#   "date": "2024-01-15"
+# }
+# 
+# 3. Mark as Paid:
+# {
+#   "type": "mark_as_paid",
+#   "entry_id": 1
+# }
+# 
+# 4. Add Car:
+# {
+#   "type": "add_car",
+#   "number_plate": "TEST123",
+#   "is_free": true,
+#   "is_special_taxi": false,
+#   "is_blocked": false
+# }
+# 
+# 5. Block Car:
+# {
+#   "type": "block_car",
+#   "number_plate": "TEST123"
+# }
+
+### 24. Test with Authentication Header (if needed)
+GET {{baseUrl}}/api/statistics/
+Content-Type: application/json
+Authorization: Bearer your_token_here
+
+### 25. Test with Session Cookie (if needed)
+GET {{baseUrl}}/api/statistics/
+Content-Type: application/json
+Cookie: sessionid=your_session_id_here
+
+### 26. Test Simple Vehicle Entry (without image for testing)
+POST {{baseUrl}}/receive-entry/
+Content-Type: application/x-www-form-urlencoded
+
+number_plate=TEST123
+
+### 27. Test Simple Vehicle Exit (without image for testing)
+POST {{baseUrl}}/receive-exit/
+Content-Type: application/x-www-form-urlencoded
+
+number_plate=TEST123

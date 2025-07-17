@@ -1,14 +1,14 @@
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth.models import AbstractUser
 
+class Role(models.TextChoices):
+    OPERATOR = "operator"
+    ADMIN = "admin"
 
-class CustomUser(models.Model):
-    first_name = models.CharField(max_length=150)
-    last_name = models.CharField(max_length=150)
-    username = models.CharField(max_length=150, unique=True)
-    password = models.CharField(max_length=150)
+class CustomUser(AbstractUser):
     image = models.ImageField(upload_to='users/', blank=True, null=True)
-    role = models.CharField(max_length=50,default="operator")
+    role = models.CharField(max_length=50,default=Role.OPERATOR)
     
     def __str__(self):
         return self.username
@@ -30,6 +30,20 @@ class VehicleEntry(models.Model):
     def __str__(self):
         return f"{self.number_plate} - {self.entry_time.strftime('%Y-%m-%d %H:%M')}"
     
+    def calculate_amount(self):
+        """Calculate parking fee based on time spent"""
+        if not self.exit_time:
+            return 0
+        
+        from config.settings import HOUR_PRICE
+        duration = self.exit_time - self.entry_time
+        hours = duration.total_seconds() / 3600
+        return int(hours * HOUR_PRICE)
+    
+    def mark_as_paid(self):
+        """Mark this entry as paid"""
+        self.is_paid = True
+        self.save()
 
     class Meta:
         db_table = "vehicle_entries"
@@ -41,6 +55,18 @@ class Cars(models.Model):
     is_free = models.BooleanField(default=False)
     is_special_taxi = models.BooleanField(default=False)
     is_blocked = models.BooleanField(default=False)
+
+    def __str__(self):
+        status = []
+        if self.is_free:
+            status.append("Bepul")
+        if self.is_special_taxi:
+            status.append("Maxsus taksi")
+        if self.is_blocked:
+            status.append("Bloklangan")
+        
+        status_str = f" ({', '.join(status)})" if status else ""
+        return f"{self.number_plate}{status_str}"
 
     class Meta:
         db_table = "cars"
