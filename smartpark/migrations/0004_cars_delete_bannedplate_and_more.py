@@ -4,45 +4,52 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('smartpark', '0003_customuser_image'),
+        ("smartpark", "0003_customuser_image"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Cars',
+            name="Cars",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('number_plate', models.CharField(max_length=15)),
-                ('is_free', models.BooleanField(default=False)),
-                ('is_special_taxi', models.BooleanField(default=False)),
-                ('is_blocked', models.BooleanField(default=False)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("number_plate", models.CharField(max_length=15)),
+                ("is_free", models.BooleanField(default=False)),
+                ("is_special_taxi", models.BooleanField(default=False)),
+                ("is_blocked", models.BooleanField(default=False)),
             ],
             options={
-                'verbose_name': 'Car',
-                'verbose_name_plural': 'Cars',
-                'db_table': 'cars',
+                "verbose_name": "Car",
+                "verbose_name_plural": "Cars",
+                "db_table": "cars",
             },
         ),
         migrations.DeleteModel(
-            name='BannedPlate',
+            name="BannedPlate",
         ),
         migrations.AlterUniqueTogether(
-            name='dailytaxipayment',
+            name="dailytaxipayment",
             unique_together=None,
         ),
         migrations.RemoveField(
-            model_name='dailytaxipayment',
-            name='taxi',
+            model_name="dailytaxipayment",
+            name="taxi",
         ),
         migrations.DeleteModel(
-            name='FreePlate',
+            name="FreePlate",
         ),
         migrations.DeleteModel(
-            name='DailyTaxiPayment',
+            name="DailyTaxiPayment",
         ),
         migrations.DeleteModel(
-            name='SpecialTaxi',
+            name="SpecialTaxi",
         ),
     ]

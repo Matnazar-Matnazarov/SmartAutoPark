@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Smart AutoPark Operator</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
     body {
       background-color: #F4F6F8;
@@ -20,6 +22,16 @@
     .primary-btn:hover {
       background-color: #01996D;
     }
+    .payment-btn {
+      background-color: #FF6B35;
+      color: #fff;
+      font-weight: 700;
+      border-radius: 0.5rem;
+      transition: background 0.15s;
+    }
+    .payment-btn:hover {
+      background-color: #E55A2B;
+    }
     .modal {
       display: none;
       position: fixed;
@@ -32,11 +44,13 @@
     }
     .modal-content {
       background-color: white;
-      margin: 15% auto;
+      margin: 5% auto;
       padding: 20px;
       border-radius: 10px;
-      width: 80%;
-      max-width: 500px;
+      width: 90%;
+      max-width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
     }
     .notification-info {
       background-color: #2196F3;
@@ -49,6 +63,32 @@
     .notification-error {
       background-color: #f44336;
       color: white;
+    }
+    .receipt {
+      background: white;
+      padding: 20px;
+      border: 2px solid #333;
+      font-family: 'Courier New', monospace;
+      max-width: 400px;
+      margin: 0 auto;
+    }
+    .receipt-header {
+      text-align: center;
+      border-bottom: 2px solid #333;
+      padding-bottom: 10px;
+      margin-bottom: 15px;
+    }
+    .receipt-item {
+      display: flex;
+      justify-content: space-between;
+      margin: 5px 0;
+    }
+    .receipt-total {
+      border-top: 2px solid #333;
+      padding-top: 10px;
+      margin-top: 15px;
+      font-weight: bold;
+      font-size: 1.2em;
     }
   </style>
 </head>
@@ -82,7 +122,10 @@
           <div class="text-4xl font-extrabold tracking-widest text-[#1E2A38] bg-[#F4F6F8] px-8 py-4 rounded-xl border border-slate-200 shadow-inner select-all" id="current-plate">--</div>
           <div class="mt-4 text-[#00B894] text-2xl font-bold" id="current-amount">0 so'm</div>
         </div>
-        <button class="primary-btn px-8 py-3 text-lg font-bold w-full mt-2 shadow hover:scale-105" id="print-receipt" disabled>Chek chiqarish</button>
+        <div class="flex gap-2 w-full">
+          <button class="payment-btn px-6 py-3 text-lg font-bold flex-1 shadow hover:scale-105" id="pay-button" disabled>To'lov</button>
+          <button class="primary-btn px-6 py-3 text-lg font-bold flex-1 shadow hover:scale-105" id="print-receipt" disabled>Chek</button>
+        </div>
       </div>
 
       <!-- Statistika & Zapret -->
@@ -145,7 +188,7 @@
               <option value="unpaid">To'lanmaganlar</option>
             </select>
           </div>
-          <button onclick="loadUnpaidEntries()" class="primary-btn px-4 py-2">To'lanmaganlar</button>
+          <button onclick="loadUnpaidEntries()" class="payment-btn px-4 py-2">To'lanmaganlar</button>
         </div>
       </div>
       <div class="divide-y divide-gray-100" id="entries-list">
@@ -185,9 +228,41 @@
     </div>
   </div>
 
+  <!-- Payment Modal -->
+  <div id="paymentModal" class="modal">
+    <div class="modal-content">
+      <h2 class="text-xl font-bold mb-4">To'lov ma'lumotlari</h2>
+      <div id="payment-details" class="space-y-4">
+        <!-- Payment details will be populated here -->
+      </div>
+      <div class="flex gap-2 mt-6">
+        <button onclick="processPayment()" class="payment-btn px-4 py-2 flex-1">To'lovni amalga oshirish</button>
+        <button onclick="closePaymentModal()" class="bg-gray-500 text-white px-4 py-2 rounded-lg flex-1">Bekor</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Receipt Modal -->
+  <div id="receiptModal" class="modal">
+    <div class="modal-content">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-bold">Chek</h2>
+        <div class="flex gap-2">
+          <button onclick="downloadReceiptPDF()" class="primary-btn px-4 py-2">PDF yuklab olish</button>
+          <button onclick="printReceipt()" class="bg-blue-500 text-white px-4 py-2 rounded-lg">Chop etish</button>
+          <button onclick="closeReceiptModal()" class="bg-gray-500 text-white px-4 py-2 rounded-lg">Yopish</button>
+        </div>
+      </div>
+      <div id="receipt-content" class="receipt">
+        <!-- Receipt content will be populated here -->
+      </div>
+    </div>
+  </div>
+
   <script>
     let socket;
     let currentEntry = null;
+    let currentPaymentEntry = null;
 
     // Initialize WebSocket connection
     function initWebSocket() {
@@ -241,11 +316,17 @@
         case 'unpaid_entries_update':
           handleUnpaidEntriesUpdate(data.data);
           break;
+        case 'latest_unpaid_entry_update':
+          updateLatestUnpaidEntry(data.data);
+          break;
         case 'model_update':
           handleModelUpdate(data);
           break;
         case 'car_update':
           handleCarUpdate(data);
+          break;
+        case 'receipt_data':
+          handleReceiptData(data.data);
           break;
       }
     }
@@ -308,6 +389,44 @@
       }));
       
       loadVehicleEntries();
+      loadLatestUnpaidEntry();
+    }
+
+    // Load latest unpaid entry for the left card
+    function loadLatestUnpaidEntry() {
+      const selectedDate = document.getElementById('date-filter').value;
+      socket.send(JSON.stringify({
+        type: 'get_latest_unpaid_entry',
+        date: selectedDate
+      }));
+    }
+
+    // Update latest unpaid entry display
+    function updateLatestUnpaidEntry(entry) {
+      if (entry) {
+        document.getElementById('current-plate').textContent = entry.number_plate;
+        document.getElementById('entry-time').textContent = entry.entry_time;
+        document.getElementById('exit-time').textContent = entry.exit_time;
+        document.getElementById('current-amount').textContent = entry.total_amount + ' so\'m';
+        
+        // Enable payment button
+        document.getElementById('pay-button').disabled = false;
+        document.getElementById('pay-button').onclick = () => openPaymentModal(entry.id, entry.number_plate, entry.total_amount, entry.entry_time, entry.exit_time);
+        
+        // Disable receipt button (no receipt for unpaid entries)
+        document.getElementById('print-receipt').disabled = true;
+        document.getElementById('print-receipt').onclick = null;
+      } else {
+        // No unpaid entries
+        document.getElementById('current-plate').textContent = '--';
+        document.getElementById('entry-time').textContent = '--:--';
+        document.getElementById('exit-time').textContent = '--:--';
+        document.getElementById('current-amount').textContent = '0 so\'m';
+        
+        // Disable both buttons
+        document.getElementById('pay-button').disabled = true;
+        document.getElementById('print-receipt').disabled = true;
+      }
     }
 
     // Load vehicle entries with filters
@@ -365,8 +484,16 @@
           </div>
           <div class="flex gap-2">
             ${entry.exit_time && !entry.is_paid ? 
-              `<button class="primary-btn px-4 py-1 text-sm" onclick="markAsPaid(${entry.id})">To'lov</button>` : 
-              `<span class="text-sm ${statusBadge} px-3 py-1 rounded">${statusTextFull}</span>`
+              `<button class="payment-btn px-4 py-1 text-sm" onclick="openPaymentModal(${entry.id}, '${entry.number_plate}', ${entry.total_amount}, '${entry.entry_time}', '${entry.exit_time}')">To'lov</button>` : 
+              ''
+            }
+            ${entry.exit_time && entry.is_paid ? 
+              `<button class="primary-btn px-4 py-1 text-sm" onclick="showReceipt(${entry.id}, '${entry.number_plate}', ${entry.total_amount}, '${entry.entry_time}', '${entry.exit_time}')">Chek</button>` : 
+              ''
+            }
+            ${entry.status === 'inside' ? 
+              `<span class="text-sm ${statusBadge} px-3 py-1 rounded">${statusTextFull}</span>` : 
+              ''
             }
             <button class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600" onclick="deleteEntry(${entry.id})">O'chirish</button>
           </div>
@@ -374,6 +501,211 @@
         
         entriesList.appendChild(entryDiv);
       });
+    }
+
+    // Open payment modal
+    function openPaymentModal(entryId, numberPlate, amount, entryTime, exitTime) {
+      currentPaymentEntry = { entryId, numberPlate, amount, entryTime, exitTime };
+      
+      const paymentDetails = document.getElementById('payment-details');
+      paymentDetails.innerHTML = `
+        <div class="bg-gray-50 p-4 rounded-lg">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Avtomobil raqami</label>
+              <p class="text-lg font-semibold">${numberPlate}</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700">To'lov miqdori</label>
+              <p class="text-lg font-semibold text-[#FF6B35]">${amount} so'm</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Kirish vaqti</label>
+              <p class="text-sm">${entryTime}</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Chiqish vaqti</label>
+              <p class="text-sm">${exitTime}</p>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.getElementById('paymentModal').style.display = 'block';
+    }
+
+    // Close payment modal
+    function closePaymentModal() {
+      document.getElementById('paymentModal').style.display = 'none';
+      currentPaymentEntry = null;
+    }
+
+    // Process payment
+    function processPayment() {
+      if (!currentPaymentEntry) return;
+      
+      socket.send(JSON.stringify({
+        type: 'mark_as_paid',
+        entry_id: currentPaymentEntry.entryId
+      }));
+      
+      closePaymentModal();
+      
+      // Refresh data after payment
+      setTimeout(() => {
+        loadVehicleEntries();
+        loadLatestUnpaidEntry();
+      }, 500);
+    }
+
+    // Show receipt
+    function showReceipt(entryId, numberPlate, amount, entryTime, exitTime) {
+      // Get receipt data from server
+      socket.send(JSON.stringify({
+        type: 'get_receipt',
+        entry_id: entryId
+      }));
+    }
+
+    // Handle receipt data from server
+    function handleReceiptData(data) {
+      if (!data.success) {
+        showNotification('Xatolik: ' + data.error, 'error');
+        return;
+      }
+      
+      const receipt = data.receipt;
+      const receiptContent = document.getElementById('receipt-content');
+      const now = new Date();
+      
+      receiptContent.innerHTML = `
+        <div class="receipt-header">
+          <h3 class="text-lg font-bold">SMART AUTOPARK</h3>
+          <p class="text-sm">To'lov cheki</p>
+          <p class="text-xs">${now.toLocaleDateString('uz-UZ')} ${now.toLocaleTimeString('uz-UZ')}</p>
+        </div>
+        <div class="space-y-2">
+          <div class="receipt-item">
+            <span>Avtomobil raqami:</span>
+            <span>${receipt.number_plate}</span>
+          </div>
+          <div class="receipt-item">
+            <span>Kirish vaqti:</span>
+            <span>${receipt.entry_time}</span>
+          </div>
+          <div class="receipt-item">
+            <span>Chiqish vaqti:</span>
+            <span>${receipt.exit_time}</span>
+          </div>
+          <div class="receipt-item">
+            <span>Davomiyligi:</span>
+            <span>${receipt.duration_hours} soat</span>
+          </div>
+          <div class="receipt-item">
+            <span>To'lov miqdori:</span>
+            <span>${receipt.total_amount} so'm</span>
+          </div>
+          <div class="receipt-item">
+            <span>To'lov holati:</span>
+            <span class="text-green-600 font-bold">To'langan</span>
+          </div>
+        </div>
+        <div class="receipt-total">
+          <div class="receipt-item">
+            <span>JAMI:</span>
+            <span>${receipt.total_amount} so'm</span>
+          </div>
+        </div>
+        <div class="text-center mt-4 text-xs">
+          <p>Rahmat!</p>
+          <p>Yana kelib turing</p>
+        </div>
+      `;
+      
+      document.getElementById('receiptModal').style.display = 'block';
+    }
+
+    // Close receipt modal
+    function closeReceiptModal() {
+      document.getElementById('receiptModal').style.display = 'none';
+    }
+
+    // Download receipt as PDF
+    function downloadReceiptPDF() {
+      const receiptElement = document.getElementById('receipt-content');
+      
+      html2canvas(receiptElement, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true
+      }).then(canvas => {
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF();
+        const imgWidth = 210;
+        const pageHeight = 295;
+        const imgHeight = canvas.height * imgWidth / canvas.width;
+        let heightLeft = imgHeight;
+        
+        let position = 0;
+        
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+        
+        while (heightLeft >= 0) {
+          position = heightLeft - imgHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+        }
+        
+        pdf.save('receipt.pdf');
+      });
+    }
+
+    // Print receipt
+    function printReceipt() {
+      const receiptElement = document.getElementById('receipt-content');
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Chek</title>
+            <style>
+              body { font-family: 'Courier New', monospace; }
+              .receipt { 
+                background: white; 
+                padding: 20px; 
+                border: 2px solid #333; 
+                max-width: 400px; 
+                margin: 0 auto; 
+              }
+              .receipt-header { 
+                text-align: center; 
+                border-bottom: 2px solid #333; 
+                padding-bottom: 10px; 
+                margin-bottom: 15px; 
+              }
+              .receipt-item { 
+                display: flex; 
+                justify-content: space-between; 
+                margin: 5px 0; 
+              }
+              .receipt-total { 
+                border-top: 2px solid #333; 
+                padding-top: 10px; 
+                margin-top: 15px; 
+                font-weight: bold; 
+                font-size: 1.2em; 
+              }
+            </style>
+          </head>
+          <body>
+            ${receiptElement.outerHTML}
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.print();
     }
 
     // Mark entry as paid
@@ -388,7 +720,8 @@
     function handlePaymentUpdate(data) {
       if (data.success) {
         // Reload data after payment
-        loadInitialData();
+        loadVehicleEntries();
+        loadLatestUnpaidEntry();
         showNotification('To\'lov muvaffaqiyatli amalga oshirildi', 'success');
       } else {
         showNotification('Xatolik yuz berdi: ' + data.error, 'error');
@@ -442,7 +775,7 @@
         return;
       }
       
-      // Show unpaid entries in a modal or update the list
+      // Show unpaid entries in a modal
       showUnpaidEntriesModal(entries);
     }
 
@@ -462,7 +795,7 @@
             </div>
             <div class="flex gap-2">
               <span class="text-sm">${entry.total_amount} so'm</span>
-              <button class="primary-btn px-3 py-1 text-sm" onclick="markAsPaid(${entry.id})">To'lov</button>
+              <button class="payment-btn px-3 py-1 text-sm" onclick="openPaymentModal(${entry.id}, '${entry.number_plate}', ${entry.total_amount}, '${entry.entry_time}', '${entry.exit_time}')">To'lov</button>
             </div>
           </div>
         `;
@@ -519,6 +852,7 @@
           date: selectedDate
         }));
         loadVehicleEntries();
+        loadLatestUnpaidEntry();
       });
       
       // Number filter change
@@ -557,11 +891,20 @@
         socket.send(JSON.stringify(carData));
       });
       
-      // Close modal when clicking outside
+      // Close modals when clicking outside
       window.onclick = function(event) {
-        const modal = document.getElementById('addCarModal');
-        if (event.target === modal) {
+        const addCarModal = document.getElementById('addCarModal');
+        const paymentModal = document.getElementById('paymentModal');
+        const receiptModal = document.getElementById('receiptModal');
+        
+        if (event.target === addCarModal) {
           closeAddCarModal();
+        }
+        if (event.target === paymentModal) {
+          closePaymentModal();
+        }
+        if (event.target === receiptModal) {
+          closeReceiptModal();
         }
       };
     });

@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('smartpark', '0002_customuser'),
+        ("smartpark", "0002_customuser"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='customuser',
-            name='image',
-            field=models.ImageField(blank=True, null=True, upload_to='users/'),
+            model_name="customuser",
+            name="image",
+            field=models.ImageField(blank=True, null=True, upload_to="users/"),
         ),
     ]

@@ -2,52 +2,48 @@ from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import AbstractUser
 
+
 class Role(models.TextChoices):
     OPERATOR = "operator"
     ADMIN = "admin"
 
+
 class CustomUser(AbstractUser):
-    image = models.ImageField(upload_to='users/', blank=True, null=True)
-    role = models.CharField(max_length=50,default=Role.OPERATOR)
-    
+    image = models.ImageField(upload_to="users/", blank=True, null=True)
+    role = models.CharField(max_length=50, default=Role.OPERATOR)
+
     def __str__(self):
         return self.username
-    
+
     class Meta:
         db_table = "custom_users"
         verbose_name = "Custom User"
         verbose_name_plural = "Custom Users"
 
-class VehicleEntryManager(models.Manager):
-    def get_queryset(self):
-        return super().get_queryset().filter(is_deleted=False)
 
-    
 class VehicleEntry(models.Model):
     number_plate = models.CharField(max_length=15)
     entry_time = models.DateTimeField(default=timezone.now)
     exit_time = models.DateTimeField(blank=True, null=True)
-    entry_image = models.ImageField(upload_to='entries/')
-    exit_image = models.ImageField(upload_to='exits/', blank=True, null=True)
+    entry_image = models.ImageField(upload_to="entries/")
+    exit_image = models.ImageField(upload_to="exits/", blank=True, null=True)
     total_amount = models.IntegerField(blank=True, null=True)
     is_paid = models.BooleanField(default=False)
-    is_deleted = models.BooleanField(default=False)
-    objects = VehicleEntryManager()
-    all_objects = models.Manager()
-    
+
     def __str__(self):
         return f"{self.number_plate} - {self.entry_time.strftime('%Y-%m-%d %H:%M')}"
-    
+
     def calculate_amount(self):
         """Calculate parking fee based on time spent"""
         if not self.exit_time:
             return 0
-        
+
         from config.settings import HOUR_PRICE
+
         duration = self.exit_time - self.entry_time
         hours = duration.total_seconds() / 3600
         return int(hours * HOUR_PRICE)
-    
+
     def mark_as_paid(self):
         """Mark this entry as paid"""
         self.is_paid = True
@@ -57,6 +53,7 @@ class VehicleEntry(models.Model):
         db_table = "vehicle_entries"
         verbose_name = "Vehicle Entry"
         verbose_name_plural = "Vehicle Entries"
+
 
 class Cars(models.Model):
     number_plate = models.CharField(max_length=15)
@@ -72,7 +69,7 @@ class Cars(models.Model):
             status.append("Maxsus taksi")
         if self.is_blocked:
             status.append("Bloklangan")
-        
+
         status_str = f" ({', '.join(status)})" if status else ""
         return f"{self.number_plate}{status_str}"
 
@@ -80,5 +77,3 @@ class Cars(models.Model):
         db_table = "cars"
         verbose_name = "Car"
         verbose_name_plural = "Cars"
-    
-    

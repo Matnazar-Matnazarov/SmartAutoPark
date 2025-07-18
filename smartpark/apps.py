@@ -2,9 +2,8 @@ from django.apps import AppConfig
 
 
 class SmartparkConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'smartpark'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "smartpark"
 
     def ready(self):
         """Import signals when the app is ready"""
-        import smartpark.signals

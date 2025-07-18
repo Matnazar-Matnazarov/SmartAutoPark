@@ -4,47 +4,53 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from .models import VehicleEntry, Cars
 from django.utils import timezone
-from datetime import datetime
-import json
 
 
 @receiver(post_save, sender=VehicleEntry)
 def vehicle_entry_updated(sender, instance, created, **kwargs):
     """Send WebSocket update when VehicleEntry is created or updated"""
     channel_layer = get_channel_layer()
-    
+
     # Get statistics for today
     today = timezone.now().date()
     today_entries = VehicleEntry.objects.filter(entry_time__date=today)
     total_entries = today_entries.count()
     total_exits = today_entries.filter(exit_time__isnull=False).count()
     total_inside = total_entries - total_exits
-    unpaid_entries = today_entries.filter(is_paid=False, exit_time__isnull=False).count()
-    
+    unpaid_entries = today_entries.filter(
+        is_paid=False, exit_time__isnull=False
+    ).count()
+
     # Prepare statistics data
     stats_data = {
-        'total_entries': total_entries,
-        'total_exits': total_exits,
-        'total_inside': total_inside,
-        'unpaid_entries': unpaid_entries
+        "total_entries": total_entries,
+        "total_exits": total_exits,
+        "total_inside": total_inside,
+        "unpaid_entries": unpaid_entries,
     }
-    
+
     # Get latest vehicle entries
-    entries = VehicleEntry.objects.filter(entry_time__date=today).order_by('-entry_time')[:10]
+    entries = VehicleEntry.objects.filter(entry_time__date=today).order_by(
+        "-entry_time"
+    )[:10]
     entries_data = []
-    
+
     for entry in entries:
-        entries_data.append({
-            'id': entry.id,
-            'number_plate': entry.number_plate,
-            'entry_time': entry.entry_time.strftime('%H:%M'),
-            'exit_time': entry.exit_time.strftime('%H:%M') if entry.exit_time else None,
-            'total_amount': entry.total_amount or 0,
-            'is_paid': entry.is_paid,
-            'entry_image': entry.entry_image.url if entry.entry_image else None,
-            'exit_image': entry.exit_image.url if entry.exit_image else None,
-        })
-    
+        entries_data.append(
+            {
+                "id": entry.id,
+                "number_plate": entry.number_plate,
+                "entry_time": entry.entry_time.strftime("%H:%M"),
+                "exit_time": entry.exit_time.strftime("%H:%M")
+                if entry.exit_time
+                else None,
+                "total_amount": entry.total_amount or 0,
+                "is_paid": entry.is_paid,
+                "entry_image": entry.entry_image.url if entry.entry_image else None,
+                "exit_image": entry.exit_image.url if entry.exit_image else None,
+            }
+        )
+
     # Send updates to all connected clients
     async_to_sync(channel_layer.group_send)(
         "home_updates",
@@ -54,8 +60,8 @@ def vehicle_entry_updated(sender, instance, created, **kwargs):
             "vehicle_entries": entries_data,
             "action": "created" if created else "updated",
             "entry_id": instance.id,
-            "number_plate": instance.number_plate
-        }
+            "number_plate": instance.number_plate,
+        },
     )
 
 
@@ -63,39 +69,47 @@ def vehicle_entry_updated(sender, instance, created, **kwargs):
 def vehicle_entry_deleted(sender, instance, **kwargs):
     """Send WebSocket update when VehicleEntry is deleted"""
     channel_layer = get_channel_layer()
-    
+
     # Get updated statistics for today
     today = timezone.now().date()
     today_entries = VehicleEntry.objects.filter(entry_time__date=today)
     total_entries = today_entries.count()
     total_exits = today_entries.filter(exit_time__isnull=False).count()
     total_inside = total_entries - total_exits
-    unpaid_entries = today_entries.filter(is_paid=False, exit_time__isnull=False).count()
-    
+    unpaid_entries = today_entries.filter(
+        is_paid=False, exit_time__isnull=False
+    ).count()
+
     # Prepare statistics data
     stats_data = {
-        'total_entries': total_entries,
-        'total_exits': total_exits,
-        'total_inside': total_inside,
-        'unpaid_entries': unpaid_entries
+        "total_entries": total_entries,
+        "total_exits": total_exits,
+        "total_inside": total_inside,
+        "unpaid_entries": unpaid_entries,
     }
-    
+
     # Get latest vehicle entries
-    entries = VehicleEntry.objects.filter(entry_time__date=today).order_by('-entry_time')[:10]
+    entries = VehicleEntry.objects.filter(entry_time__date=today).order_by(
+        "-entry_time"
+    )[:10]
     entries_data = []
-    
+
     for entry in entries:
-        entries_data.append({
-            'id': entry.id,
-            'number_plate': entry.number_plate,
-            'entry_time': entry.entry_time.strftime('%H:%M'),
-            'exit_time': entry.exit_time.strftime('%H:%M') if entry.exit_time else None,
-            'total_amount': entry.total_amount or 0,
-            'is_paid': entry.is_paid,
-            'entry_image': entry.entry_image.url if entry.entry_image else None,
-            'exit_image': entry.exit_image.url if entry.exit_image else None,
-        })
-    
+        entries_data.append(
+            {
+                "id": entry.id,
+                "number_plate": entry.number_plate,
+                "entry_time": entry.entry_time.strftime("%H:%M"),
+                "exit_time": entry.exit_time.strftime("%H:%M")
+                if entry.exit_time
+                else None,
+                "total_amount": entry.total_amount or 0,
+                "is_paid": entry.is_paid,
+                "entry_image": entry.entry_image.url if entry.entry_image else None,
+                "exit_image": entry.exit_image.url if entry.exit_image else None,
+            }
+        )
+
     # Send updates to all connected clients
     async_to_sync(channel_layer.group_send)(
         "home_updates",
@@ -105,8 +119,8 @@ def vehicle_entry_deleted(sender, instance, **kwargs):
             "vehicle_entries": entries_data,
             "action": "deleted",
             "entry_id": instance.id,
-            "number_plate": instance.number_plate
-        }
+            "number_plate": instance.number_plate,
+        },
     )
 
 
@@ -114,23 +128,23 @@ def vehicle_entry_deleted(sender, instance, **kwargs):
 def car_updated(sender, instance, created, **kwargs):
     """Send WebSocket update when Cars is created or updated"""
     channel_layer = get_channel_layer()
-    
+
     # Prepare car data
     car_data = {
-        'number_plate': instance.number_plate,
-        'is_free': instance.is_free,
-        'is_special_taxi': instance.is_special_taxi,
-        'is_blocked': instance.is_blocked
+        "number_plate": instance.number_plate,
+        "is_free": instance.is_free,
+        "is_special_taxi": instance.is_special_taxi,
+        "is_blocked": instance.is_blocked,
     }
-    
+
     # Send updates to all connected clients
     async_to_sync(channel_layer.group_send)(
         "home_updates",
         {
             "type": "broadcast_car_update",
             "car": car_data,
-            "action": "created" if created else "updated"
-        }
+            "action": "created" if created else "updated",
+        },
     )
 
 
@@ -138,18 +152,18 @@ def car_updated(sender, instance, created, **kwargs):
 def car_deleted(sender, instance, **kwargs):
     """Send WebSocket update when Cars is deleted"""
     channel_layer = get_channel_layer()
-    
+
     # Send updates to all connected clients
     async_to_sync(channel_layer.group_send)(
         "home_updates",
         {
             "type": "broadcast_car_update",
             "car": {
-                'number_plate': instance.number_plate,
-                'is_free': instance.is_free,
-                'is_special_taxi': instance.is_special_taxi,
-                'is_blocked': instance.is_blocked
+                "number_plate": instance.number_plate,
+                "is_free": instance.is_free,
+                "is_special_taxi": instance.is_special_taxi,
+                "is_blocked": instance.is_blocked,
             },
-            "action": "deleted"
-        }
-    ) 
+            "action": "deleted",
+        },
+    )

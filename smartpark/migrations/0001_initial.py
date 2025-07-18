@@ -6,80 +6,127 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='BannedPlate',
+            name="BannedPlate",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('number_plate', models.CharField(max_length=15, unique=True)),
-                ('comment', models.TextField(blank=True, null=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("number_plate", models.CharField(max_length=15, unique=True)),
+                ("comment", models.TextField(blank=True, null=True)),
             ],
             options={
-                'verbose_name': 'Banned Plate',
-                'verbose_name_plural': 'Banned Plates',
-                'db_table': 'banned_plates',
+                "verbose_name": "Banned Plate",
+                "verbose_name_plural": "Banned Plates",
+                "db_table": "banned_plates",
             },
         ),
         migrations.CreateModel(
-            name='FreePlate',
+            name="FreePlate",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('number_plate', models.CharField(max_length=15, unique=True)),
-                ('reason', models.CharField(blank=True, max_length=100, null=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("number_plate", models.CharField(max_length=15, unique=True)),
+                ("reason", models.CharField(blank=True, max_length=100, null=True)),
             ],
             options={
-                'verbose_name': 'Free Plate',
-                'verbose_name_plural': 'Free Plates',
-                'db_table': 'free_plates',
+                "verbose_name": "Free Plate",
+                "verbose_name_plural": "Free Plates",
+                "db_table": "free_plates",
             },
         ),
         migrations.CreateModel(
-            name='SpecialTaxi',
+            name="SpecialTaxi",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('number_plate', models.CharField(max_length=15, unique=True)),
-                ('owner_name', models.CharField(blank=True, max_length=100, null=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("number_plate", models.CharField(max_length=15, unique=True)),
+                ("owner_name", models.CharField(blank=True, max_length=100, null=True)),
             ],
             options={
-                'verbose_name': 'Special Taxi',
-                'verbose_name_plural': 'Special Taxis',
-                'db_table': 'special_taxis',
+                "verbose_name": "Special Taxi",
+                "verbose_name_plural": "Special Taxis",
+                "db_table": "special_taxis",
             },
         ),
         migrations.CreateModel(
-            name='VehicleEntry',
+            name="VehicleEntry",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('number_plate', models.CharField(max_length=15)),
-                ('entry_time', models.DateTimeField(default=django.utils.timezone.now)),
-                ('exit_time', models.DateTimeField(blank=True, null=True)),
-                ('entry_image', models.ImageField(upload_to='entries/')),
-                ('exit_image', models.ImageField(blank=True, null=True, upload_to='exits/')),
-                ('total_amount', models.IntegerField(blank=True, null=True)),
-                ('is_paid', models.BooleanField(default=False)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("number_plate", models.CharField(max_length=15)),
+                ("entry_time", models.DateTimeField(default=django.utils.timezone.now)),
+                ("exit_time", models.DateTimeField(blank=True, null=True)),
+                ("entry_image", models.ImageField(upload_to="entries/")),
+                (
+                    "exit_image",
+                    models.ImageField(blank=True, null=True, upload_to="exits/"),
+                ),
+                ("total_amount", models.IntegerField(blank=True, null=True)),
+                ("is_paid", models.BooleanField(default=False)),
             ],
             options={
-                'verbose_name': 'Vehicle Entry',
-                'verbose_name_plural': 'Vehicle Entries',
-                'db_table': 'vehicle_entries',
+                "verbose_name": "Vehicle Entry",
+                "verbose_name_plural": "Vehicle Entries",
+                "db_table": "vehicle_entries",
             },
         ),
         migrations.CreateModel(
-            name='DailyTaxiPayment',
+            name="DailyTaxiPayment",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('date', models.DateField()),
-                ('taxi', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='smartpark.specialtaxi')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("date", models.DateField()),
+                (
+                    "taxi",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to="smartpark.specialtaxi",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'daily_taxi_payments',
-                'unique_together': {('taxi', 'date')},
+                "db_table": "daily_taxi_payments",
+                "unique_together": {("taxi", "date")},
             },
         ),
     ]
