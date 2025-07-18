@@ -129,9 +129,25 @@
       </div>
     </div>
 
-    <!-- Oxirgi kirganlar -->
-    <section class="mt-8 bg-white rounded-2xl shadow-lg p-6 max-w-4xl mx-auto">
-      <h2 class="text-base font-bold text-[#1E2A38] mb-4">Oxirgi kirganlar</h2>
+    <!-- Barcha kirganlar -->
+    <section class="mt-8 bg-white rounded-2xl shadow-lg p-6 max-w-6xl mx-auto">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-xl font-bold text-[#1E2A38]">Barcha kirganlar</h2>
+        <div class="flex gap-4 items-center">
+          <!-- Filter controls -->
+          <div class="flex gap-2">
+            <input type="text" id="number-filter" placeholder="Raqam bo'yicha qidirish..." class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#00B894] outline-none transition">
+            <select id="status-filter" class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#00B894] outline-none transition">
+              <option value="all">Hammasi</option>
+              <option value="inside">Ichkarida</option>
+              <option value="exited">Chiqganlar</option>
+              <option value="paid">To'langanlar</option>
+              <option value="unpaid">To'lanmaganlar</option>
+            </select>
+          </div>
+          <button onclick="loadUnpaidEntries()" class="primary-btn px-4 py-2">To'lanmaganlar</button>
+        </div>
+      </div>
       <div class="divide-y divide-gray-100" id="entries-list">
         <!-- Entries will be populated here -->
       </div>
@@ -219,6 +235,12 @@
         case 'car_blocked':
           handleCarBlocked(data.data);
           break;
+        case 'entry_deleted':
+          handleEntryDeleted(data.data);
+          break;
+        case 'unpaid_entries_update':
+          handleUnpaidEntriesUpdate(data.data);
+          break;
         case 'model_update':
           handleModelUpdate(data);
           break;
@@ -285,9 +307,29 @@
         date: today
       }));
       
+      loadVehicleEntries();
+    }
+
+    // Load vehicle entries with filters
+    function loadVehicleEntries() {
+      const selectedDate = document.getElementById('date-filter').value;
+      const numberFilter = document.getElementById('number-filter').value;
+      const statusFilter = document.getElementById('status-filter').value;
+      
       socket.send(JSON.stringify({
         type: 'get_vehicle_entries',
-        date: today
+        date: selectedDate,
+        number_plate: numberFilter,
+        status: statusFilter
+      }));
+    }
+
+    // Load unpaid entries for receipt printing
+    function loadUnpaidEntries() {
+      const selectedDate = document.getElementById('date-filter').value;
+      socket.send(JSON.stringify({
+        type: 'get_unpaid_entries',
+        date: selectedDate
       }));
     }
 
@@ -309,16 +351,25 @@
         
         const statusClass = entry.is_paid ? 'text-green-600' : 'text-red-600';
         const statusText = entry.is_paid ? 'To\'langan' : 'To\'lanmagan';
+        const statusBadge = entry.status === 'inside' ? 'text-blue-600' : statusClass;
+        const statusTextFull = entry.status === 'inside' ? 'Ichkarida' : statusText;
         
         entryDiv.innerHTML = `
           <div class="flex flex-col">
-            <span class="font-semibold text-[#1E2A38]">${entry.number_plate} — ${entry.entry_time}</span>
-            <span class="text-sm text-gray-500">${entry.total_amount} so'm - ${statusText}</span>
+            <span class="font-semibold text-[#1E2A38]">${entry.number_plate}</span>
+            <span class="text-sm text-gray-500">
+              Kirish: ${entry.entry_time} 
+              ${entry.exit_time ? `| Chiqish: ${entry.exit_time}` : ''}
+            </span>
+            <span class="text-sm ${statusBadge}">${entry.total_amount} so'm - ${statusTextFull}</span>
           </div>
-          ${entry.exit_time && !entry.is_paid ? 
-            `<button class="primary-btn px-4 py-1 text-base" onclick="markAsPaid(${entry.id})">To'lov</button>` : 
-            `<span class="text-sm ${statusClass}">${statusText}</span>`
-          }
+          <div class="flex gap-2">
+            ${entry.exit_time && !entry.is_paid ? 
+              `<button class="primary-btn px-4 py-1 text-sm" onclick="markAsPaid(${entry.id})">To'lov</button>` : 
+              `<span class="text-sm ${statusBadge} px-3 py-1 rounded">${statusTextFull}</span>`
+            }
+            <button class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600" onclick="deleteEntry(${entry.id})">O'chirish</button>
+          </div>
         `;
         
         entriesList.appendChild(entryDiv);
@@ -374,6 +425,72 @@
       }
     }
 
+    // Handle entry deleted
+    function handleEntryDeleted(data) {
+      if (data.success) {
+        showNotification('Yozuv o\'chirildi', 'success');
+        loadVehicleEntries(); // Reload the list
+      } else {
+        showNotification('Xatolik yuz berdi: ' + data.error, 'error');
+      }
+    }
+
+    // Handle unpaid entries update
+    function handleUnpaidEntriesUpdate(entries) {
+      if (entries.length === 0) {
+        showNotification('To\'lanmagan yozuvlar yo\'q', 'info');
+        return;
+      }
+      
+      // Show unpaid entries in a modal or update the list
+      showUnpaidEntriesModal(entries);
+    }
+
+    // Show unpaid entries modal
+    function showUnpaidEntriesModal(entries) {
+      const modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.style.display = 'block';
+      
+      let entriesHtml = '';
+      entries.forEach(entry => {
+        entriesHtml += `
+          <div class="flex justify-between items-center py-2 border-b">
+            <div>
+              <span class="font-semibold">${entry.number_plate}</span>
+              <span class="text-sm text-gray-500 ml-2">${entry.entry_time} - ${entry.exit_time}</span>
+            </div>
+            <div class="flex gap-2">
+              <span class="text-sm">${entry.total_amount} so'm</span>
+              <button class="primary-btn px-3 py-1 text-sm" onclick="markAsPaid(${entry.id})">To'lov</button>
+            </div>
+          </div>
+        `;
+      });
+      
+      modal.innerHTML = `
+        <div class="modal-content">
+          <h2 class="text-xl font-bold mb-4">To'lanmagan yozuvlar</h2>
+          <div class="max-h-96 overflow-y-auto">
+            ${entriesHtml}
+          </div>
+          <button onclick="this.parentElement.parentElement.remove()" class="mt-4 bg-gray-500 text-white px-4 py-2 rounded-lg">Yopish</button>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+    }
+
+    // Delete entry function
+    function deleteEntry(entryId) {
+      if (confirm('Bu yozuvni o\'chirishni xohlaysizmi?')) {
+        socket.send(JSON.stringify({
+          type: 'delete_entry',
+          entry_id: entryId
+        }));
+      }
+    }
+
     // Show notification
     function showNotification(message, type) {
       const notification = document.createElement('div');
@@ -401,10 +518,17 @@
           type: 'get_statistics',
           date: selectedDate
         }));
-        socket.send(JSON.stringify({
-          type: 'get_vehicle_entries',
-          date: selectedDate
-        }));
+        loadVehicleEntries();
+      });
+      
+      // Number filter change
+      document.getElementById('number-filter').addEventListener('input', function() {
+        loadVehicleEntries();
+      });
+      
+      // Status filter change
+      document.getElementById('status-filter').addEventListener('change', function() {
+        loadVehicleEntries();
       });
       
       // Block car form

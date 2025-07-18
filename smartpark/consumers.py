@@ -28,13 +28,17 @@ class HomeConsumer(AsyncWebsocketConsumer):
         if message_type == 'get_statistics':
             await self.send_statistics(data.get('date', timezone.now().date().isoformat()))
         elif message_type == 'get_vehicle_entries':
-            await self.send_vehicle_entries(data.get('date', timezone.now().date().isoformat()))
+            await self.send_vehicle_entries(data.get('date', timezone.now().date().isoformat()), data.get('number_plate', ''), data.get('status', 'all'))
         elif message_type == 'mark_as_paid':
             await self.handle_mark_as_paid(data.get('entry_id'))
         elif message_type == 'add_car':
             await self.handle_add_car(data)
         elif message_type == 'block_car':
             await self.handle_block_car(data.get('number_plate'))
+        elif message_type == 'delete_entry':
+            await self.handle_delete_entry(data.get('entry_id'))
+        elif message_type == 'get_unpaid_entries':
+            await self.send_unpaid_entries(data.get('date', timezone.now().date().isoformat()))
 
     # Handle broadcast messages from signals
     async def broadcast_update(self, event):
@@ -80,13 +84,26 @@ class HomeConsumer(AsyncWebsocketConsumer):
         }
 
     @database_sync_to_async
-    def get_vehicle_entries(self, date_str):
+    def get_vehicle_entries(self, date_str, number_plate_filter='', status_filter='all'):
         try:
             date = datetime.strptime(date_str, '%Y-%m-%d').date()
         except:
             date = timezone.now().date()
         
-        entries = VehicleEntry.objects.filter(entry_time__date=date).order_by('-entry_time')[:10]
+        entries = VehicleEntry.objects.filter(entry_time__date=date).order_by('-entry_time')
+        
+        if number_plate_filter:
+            entries = entries.filter(number_plate__icontains=number_plate_filter)
+        
+        # Status filter
+        if status_filter == 'paid':
+            entries = entries.filter(is_paid=True)
+        elif status_filter == 'unpaid':
+            entries = entries.filter(is_paid=False, exit_time__isnull=False)
+        elif status_filter == 'inside':
+            entries = entries.filter(exit_time__isnull=True)
+        elif status_filter == 'exited':
+            entries = entries.filter(exit_time__isnull=False)
         
         entries_data = []
         for entry in entries:
@@ -99,6 +116,7 @@ class HomeConsumer(AsyncWebsocketConsumer):
                 'is_paid': entry.is_paid,
                 'entry_image': entry.entry_image.url if entry.entry_image else None,
                 'exit_image': entry.exit_image.url if entry.exit_image else None,
+                'status': 'inside' if not entry.exit_time else ('paid' if entry.is_paid else 'unpaid')
             })
         
         return entries_data
@@ -150,6 +168,42 @@ class HomeConsumer(AsyncWebsocketConsumer):
         except Cars.DoesNotExist:
             return {'success': False, 'error': 'Car not found'}
 
+    @database_sync_to_async
+    def delete_entry(self, entry_id):
+        try:
+            entry = VehicleEntry.objects.get(id=entry_id)
+            entry.soft_delete()
+            return {'success': True, 'entry_id': entry_id}
+        except VehicleEntry.DoesNotExist:
+            return {'success': False, 'error': 'Entry not found'}
+
+    @database_sync_to_async
+    def get_unpaid_entries(self, date_str):
+        try:
+            date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except:
+            date = timezone.now().date()
+        
+        # Get unpaid entries that have exited
+        unpaid_entries = VehicleEntry.objects.filter(
+            entry_time__date=date,
+            is_paid=False,
+            exit_time__isnull=False
+        ).order_by('-exit_time')
+        
+        entries_data = []
+        for entry in unpaid_entries:
+            entries_data.append({
+                'id': entry.id,
+                'number_plate': entry.number_plate,
+                'entry_time': entry.entry_time.strftime('%H:%M'),
+                'exit_time': entry.exit_time.strftime('%H:%M'),
+                'total_amount': entry.total_amount or 0,
+                'duration_hours': round((entry.exit_time - entry.entry_time).total_seconds() / 3600, 2)
+            })
+        
+        return entries_data
+
     async def send_statistics(self, date_str):
         stats = await self.get_statistics(date_str)
         await self.send(text_data=json.dumps({
@@ -157,10 +211,17 @@ class HomeConsumer(AsyncWebsocketConsumer):
             'data': stats
         }))
 
-    async def send_vehicle_entries(self, date_str):
-        entries = await self.get_vehicle_entries(date_str)
+    async def send_vehicle_entries(self, date_str, number_plate_filter='', status_filter='all'):
+        entries = await self.get_vehicle_entries(date_str, number_plate_filter, status_filter)
         await self.send(text_data=json.dumps({
             'type': 'vehicle_entries_update',
+            'data': entries
+        }))
+
+    async def send_unpaid_entries(self, date_str):
+        entries = await self.get_unpaid_entries(date_str)
+        await self.send(text_data=json.dumps({
+            'type': 'unpaid_entries_update',
             'data': entries
         }))
 
@@ -182,5 +243,12 @@ class HomeConsumer(AsyncWebsocketConsumer):
         result = await self.block_car(number_plate)
         await self.send(text_data=json.dumps({
             'type': 'car_blocked',
+            'data': result
+        }))
+
+    async def handle_delete_entry(self, entry_id):
+        result = await self.delete_entry(entry_id)
+        await self.send(text_data=json.dumps({
+            'type': 'entry_deleted',
             'data': result
         }))

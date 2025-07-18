@@ -18,6 +18,11 @@ class CustomUser(AbstractUser):
         verbose_name = "Custom User"
         verbose_name_plural = "Custom Users"
 
+class VehicleEntryManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_deleted=False)
+
+    
 class VehicleEntry(models.Model):
     number_plate = models.CharField(max_length=15)
     entry_time = models.DateTimeField(default=timezone.now)
@@ -26,7 +31,10 @@ class VehicleEntry(models.Model):
     exit_image = models.ImageField(upload_to='exits/', blank=True, null=True)
     total_amount = models.IntegerField(blank=True, null=True)
     is_paid = models.BooleanField(default=False)
-
+    is_deleted = models.BooleanField(default=False)
+    objects = VehicleEntryManager()
+    all_objects = models.Manager()
+    
     def __str__(self):
         return f"{self.number_plate} - {self.entry_time.strftime('%Y-%m-%d %H:%M')}"
     

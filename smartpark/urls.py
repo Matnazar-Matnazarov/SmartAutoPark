@@ -2,7 +2,8 @@
 from django.urls import path
 from .views import (
     receive_entry, receive_exit, LoginView, LogoutView, HomeView,
-    get_statistics, get_vehicle_entries, mark_as_paid, add_car, block_car
+    get_statistics, get_vehicle_entries, mark_as_paid, add_car, block_car,
+    delete_entry, get_unpaid_entries
 )
 from django.conf import settings
 from django.conf.urls.static import static
@@ -23,4 +24,6 @@ urlpatterns = [
     path('api/mark-paid/', mark_as_paid, name='mark_as_paid'),
     path('api/add-car/', add_car, name='add_car'),
     path('api/block-car/', block_car, name='block_car'),
+    path('api/delete-entry/', delete_entry, name='delete_entry'),
+    path('api/unpaid-entries/', get_unpaid_entries, name='get_unpaid_entries'),
 ]+static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)+staticfiles_urlpatterns()
