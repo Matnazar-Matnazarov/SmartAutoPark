@@ -82,3 +82,6 @@ poetry.lock
 *.msi
 *.cab
 *.log
+
+#migrations
+migrations/
