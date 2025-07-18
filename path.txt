@@ -1,0 +1,43 @@
+HIKVISION - Configuration Menyu Tuzilishi
+Live View
+Application Display
+VCA
+Configuration
+    ├── Common Settings
+    │   System
+    │   │   System Settings
+    │   │   User Management
+    ├── Network
+    ├── Video/Audio
+    ├── Image
+    ├── Storage
+    ├── Event
+    ├── Maintenance and Security
+    ├── Device Management
+Maintenance and Security
+------------------------------------------------------
+Misol uchun, hozir ochiq bo‘lim quyidagicha:
+
+Configuration
+
+    System
+        System Settings
+            Basic Information (tab)
+            Time Settings (tab)
+            RS-232 (tab)
+            System Service (tab)
+            └── Location (tab)
+
+Basic Information bo‘limidagi maydonlar:
+    - Device Name
+    - Device No.
+    - Device Model
+    - Device Serial No.
+    - Firmware Version
+    - Encoding Version
+    - Web Version
+    - Number of Channels
+    - Number of HDDs
+    - Number of Alarm Inputs
+    - Number of Alarm Outputs
+    - Firmware Version Property
