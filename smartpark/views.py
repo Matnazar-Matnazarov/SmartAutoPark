@@ -429,6 +429,28 @@ def get_unpaid_entries(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
+
+
+class FreePlateNumberView(LoginRequiredMixin, View):
+    def get(self, request):
+        free_plates = Cars.objects.filter(is_free=True)
+        return render(request, 'freeplatenumber.html', {'free_plates': free_plates})
+    
+    def post(self, request):
+        number_plate = request.POST.get('number_plate')
+        
+        if Cars.objects.filter(number_plate=number_plate).exists():
+            return JsonResponse({'success': False, 'message': 'Bu raqamli avtomobil allaqachon mavjud'}, status=400)
+        else:
+            Cars.objects.create(number_plate=number_plate, is_free=True)
+            return JsonResponse({'success': True, 'message': 'Avtomobil muvaffaqiyatli qo`shildi'}, status=200)
+            
+
+class DeleteFreePlateView(LoginRequiredMixin, View):
+    def get(self, request, pk):
+        Cars.objects.filter(pk=pk).delete()
+        return JsonResponse({'success': True, 'message': 'Avtomobil muvaffaqiyatli o`chirildi'}, status=200)
+    
 @csrf_exempt
 @require_http_methods(["GET"])
 def get_receipt(request):

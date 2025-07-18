@@ -13,6 +13,7 @@ from .views import (
     block_car,
     get_unpaid_entries,
     get_receipt,
+    FreePlateNumberView, DeleteFreePlateView
 )
 from django.conf import settings
 from django.conf.urls.static import static
@@ -35,6 +36,9 @@ urlpatterns = (
         path("api/block-car/", block_car, name="block_car"),
         path("api/unpaid-entries/", get_unpaid_entries, name="get_unpaid_entries"),
         path("api/receipt/", get_receipt, name="get_receipt"),
+        path('free-plate-number/', FreePlateNumberView.as_view(), name='free_plate_number'),
+        path('delete-free-plate/<int:pk>/', DeleteFreePlateView.as_view(), name='delete_free_plate'),
+
     ]
     + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     + staticfiles_urlpatterns()
