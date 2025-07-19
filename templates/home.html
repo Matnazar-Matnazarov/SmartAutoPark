@@ -7,31 +7,79 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     body {
-      background-color: #F4F6F8;
-      color: #1E2A38;
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #1f2937;
+      min-height: 100vh;
     }
+    
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+    
     .primary-btn {
-      background-color: #00B894;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: #fff;
-      font-weight: 700;
-      border-radius: 0.5rem;
-      transition: background 0.15s;
+      font-weight: 600;
+      border-radius: 12px;
+      transition: all 0.3s ease;
+      border: none;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
     }
     .primary-btn:hover {
-      background-color: #01996D;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
     }
+    
     .payment-btn {
-      background-color: #FF6B35;
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
       color: #fff;
-      font-weight: 700;
-      border-radius: 0.5rem;
-      transition: background 0.15s;
+      font-weight: 600;
+      border-radius: 12px;
+      transition: all 0.3s ease;
+      border: none;
+      box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
     }
     .payment-btn:hover {
-      background-color: #E55A2B;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(255, 107, 107, 0.6);
     }
+    
+    .success-btn {
+      background: linear-gradient(135deg, #00b894 0%, #00a085 100%);
+      color: #fff;
+      font-weight: 600;
+      border-radius: 12px;
+      transition: all 0.3s ease;
+      border: none;
+      box-shadow: 0 4px 15px rgba(0, 184, 148, 0.4);
+    }
+    .success-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 184, 148, 0.6);
+    }
+    
+    .warning-btn {
+      background: linear-gradient(135deg, #fdcb6e 0%, #e17055 100%);
+      color: #fff;
+      font-weight: 600;
+      border-radius: 12px;
+      transition: all 0.3s ease;
+      border: none;
+      box-shadow: 0 4px 15px rgba(253, 203, 110, 0.4);
+    }
+    .warning-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(253, 203, 110, 0.6);
+    }
+    
     .modal {
       display: none;
       position: fixed;
@@ -40,205 +88,388 @@
       top: 0;
       width: 100%;
       height: 100%;
-      background-color: rgba(0,0,0,0.5);
+      background-color: rgba(0,0,0,0.6);
+      backdrop-filter: blur(5px);
     }
     .modal-content {
-      background-color: white;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
       margin: 5% auto;
-      padding: 20px;
-      border-radius: 10px;
+      padding: 30px;
+      border-radius: 20px;
       width: 90%;
       max-width: 600px;
       max-height: 80vh;
       overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 16px 24px;
+      border-radius: 12px;
+      color: white;
+      z-index: 1001;
+      animation: slideIn 0.3s ease-out;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
     }
     .notification-info {
-      background-color: #2196F3;
-      color: white;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     }
     .notification-success {
-      background-color: #4CAF50;
-      color: white;
+      background: linear-gradient(135deg, #00b894 0%, #00a085 100%);
     }
     .notification-error {
-      background-color: #f44336;
-      color: white;
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
     }
+    
     .receipt {
       background: white;
-      padding: 20px;
+      padding: 30px;
       border: 2px solid #333;
       font-family: 'Courier New', monospace;
       max-width: 400px;
       margin: 0 auto;
+      border-radius: 12px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
     }
     .receipt-header {
       text-align: center;
       border-bottom: 2px solid #333;
-      padding-bottom: 10px;
-      margin-bottom: 15px;
+      padding-bottom: 15px;
+      margin-bottom: 20px;
     }
     .receipt-item {
       display: flex;
       justify-content: space-between;
-      margin: 5px 0;
+      margin: 8px 0;
+      padding: 4px 0;
     }
     .receipt-total {
       border-top: 2px solid #333;
-      padding-top: 10px;
-      margin-top: 15px;
+      padding-top: 15px;
+      margin-top: 20px;
       font-weight: bold;
       font-size: 1.2em;
     }
+    
+    .license-plate {
+      background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+      border: 3px solid #1e293b;
+      border-radius: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .stats-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      transition: all 0.3s ease;
+    }
+    .stats-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+    }
+    
+    .table-container {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      overflow: hidden;
+    }
+    
+    .filter-section {
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .input-field {
+      background: rgba(255, 255, 255, 0.8);
+      border: 2px solid rgba(102, 126, 234, 0.2);
+      border-radius: 12px;
+      padding: 12px 16px;
+      transition: all 0.3s ease;
+      font-size: 14px;
+    }
+    .input-field:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      background: rgba(255, 255, 255, 0.95);
+    }
+    
+    .status-badge {
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .status-paid {
+      background: linear-gradient(135deg, #00b894 0%, #00a085 100%);
+      color: white;
+    }
+    
+    .status-unpaid {
+      background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+      color: white;
+    }
+    
+    .status-inside {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
 </head>
-<body class="min-h-screen font-sans">
+<body class="min-h-screen">
   <!-- Navbar -->
-  <div class="min-h-screen bg-[#F4F6F8] p-4 md:p-8">
+  <div class="min-h-screen p-4 md:p-8">
     <!-- Header/Navbar -->
-    <header class="w-full flex flex-col md:flex-row justify-between items-center bg-[#1E2A38] rounded-xl shadow-lg px-6 py-4 mb-8">
-      <h1 class="text-2xl font-bold text-white tracking-wide">Smart AutoPark</h1>
-      <div class="mt-3 md:mt-0 flex gap-2">
-        <button class="primary-btn px-5 py-2 text-base shadow hover:shadow-lg">Dashboard</button>
-        <button class="bg-white text-[#1E2A38] px-5 py-2 rounded-lg font-bold shadow hover:bg-gray-100 transition">Logout</button>
+    <header class="w-full flex flex-col md:flex-row justify-between items-center glass-card rounded-2xl px-8 py-6 mb-8">
+      <div class="flex items-center space-x-4">
+        <div class="p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl">
+          <i class="fas fa-car text-white text-2xl"></i>
+        </div>
+        <div>
+          <h1 class="text-3xl font-bold text-gray-800 tracking-wide">Smart AutoPark</h1>
+          <p class="text-gray-600 text-sm">Operator paneli</p>
+        </div>
+      </div>
+      <div class="mt-4 md:mt-0 flex gap-3">
+        <a href="/cars/" class="primary-btn px-6 py-3 text-sm">
+          <i class="fas fa-cog mr-2"></i>Avtomobillar
+        </a>
+        <button class="bg-red-500 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:bg-red-600 transition-all duration-300">
+          <i class="fas fa-sign-out-alt mr-2"></i>Chiqish
+        </button>
       </div>
     </header>
 
     <!-- Main content -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-      <!-- Avto info -->
-      <div class="bg-white rounded-2xl shadow-lg p-8 flex flex-col items-center justify-center min-h-[340px] hover:shadow-2xl transition">
-        <div class="flex justify-between w-full mb-4 text-[#1E2A38]">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch mb-8">
+      <!-- Current Vehicle Card -->
+      <div class="glass-card rounded-2xl p-8 flex flex-col items-center justify-center min-h-[400px]">
+        <div class="text-center mb-6">
+          <div class="p-4 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-car text-white text-2xl"></i>
+          </div>
+          <h3 class="text-xl font-semibold text-gray-800 mb-2">To'lov qilish</h3>
+          <p class="text-gray-600 text-sm">Chiqgan va to'lanmagan avtomobil</p>
+        </div>
+        
+        <div class="flex justify-between w-full mb-6">
           <div class="flex flex-col items-center">
-            <span class="text-base opacity-70">Kirish:</span>
-            <span class="text-xl font-mono font-semibold" id="entry-time">--:--</span>
+            <span class="text-sm text-gray-600 mb-1">Kirish vaqti</span>
+            <span class="text-lg font-mono font-semibold text-gray-800" id="entry-time">--:--</span>
           </div>
           <div class="flex flex-col items-center">
-            <span class="text-base opacity-70">Chiqish:</span>
-            <span class="text-xl font-mono font-semibold" id="exit-time">--:--</span>
+            <span class="text-sm text-gray-600 mb-1">Chiqish vaqti</span>
+            <span class="text-lg font-mono font-semibold text-gray-800" id="exit-time">--:--</span>
           </div>
         </div>
-        <div class="my-5 flex flex-col items-center">
-          <div class="text-4xl font-extrabold tracking-widest text-[#1E2A38] bg-[#F4F6F8] px-8 py-4 rounded-xl border border-slate-200 shadow-inner select-all" id="current-plate">--</div>
-          <div class="mt-4 text-[#00B894] text-2xl font-bold" id="current-amount">0 so'm</div>
+        
+        <div class="my-6 flex flex-col items-center w-full">
+          <div class="license-plate text-3xl font-extrabold tracking-widest text-gray-800 px-8 py-4 w-full text-center select-all" id="current-plate">--</div>
+          <div class="mt-4 text-2xl font-bold text-green-600" id="current-amount">0 so'm</div>
         </div>
-        <div class="flex gap-2 w-full">
-          <button class="payment-btn px-6 py-3 text-lg font-bold flex-1 shadow hover:scale-105" id="pay-button" disabled>To'lov</button>
-          <button class="primary-btn px-6 py-3 text-lg font-bold flex-1 shadow hover:scale-105" id="print-receipt" disabled>Chek</button>
+        
+        <div class="flex gap-3 w-full">
+          <button class="payment-btn px-6 py-3 text-lg font-bold flex-1" id="pay-button" disabled>
+            <i class="fas fa-credit-card mr-2"></i>To'lov
+          </button>
         </div>
       </div>
 
-      <!-- Statistika & Zapret -->
-      <div class="bg-white rounded-2xl shadow-lg p-8 flex flex-col justify-between min-h-[340px] hover:shadow-2xl transition">
-        <div class="grid grid-cols-3 text-center gap-4 mb-6">
-          <div>
-            <p class="text-sm text-gray-400">Bugun kirganlar</p>
-            <p class="text-2xl font-bold text-[#1E2A38]" id="total-entries">0</p>
+      <!-- Statistics Card -->
+      <div class="glass-card rounded-2xl p-8 flex flex-col justify-between min-h-[400px]">
+        <div class="text-center mb-6">
+          <div class="p-4 bg-gradient-to-r from-green-500 to-blue-600 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+            <i class="fas fa-chart-bar text-white text-2xl"></i>
           </div>
-          <div>
-            <p class="text-sm text-gray-400">Chiqanlar</p>
-            <p class="text-2xl font-bold text-[#1E2A38]" id="total-exits">0</p>
+          <h3 class="text-xl font-semibold text-gray-800 mb-2">Bugungi statistika</h3>
+          <p class="text-gray-600 text-sm">Kunlik kirish va chiqish ma'lumotlari</p>
+        </div>
+        
+        <div class="grid grid-cols-3 text-center gap-6 mb-8">
+          <div class="stats-card">
+            <div class="p-3 bg-blue-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3">
+              <i class="fas fa-sign-in-alt text-blue-600"></i>
+            </div>
+            <p class="text-xs text-gray-600 mb-1">Kirganlar</p>
+            <p class="text-2xl font-bold text-gray-800" id="total-entries">0</p>
           </div>
-          <div>
-            <p class="text-sm text-gray-400">Ichkarida</p>
-            <p class="text-2xl font-bold text-[#1E2A38]" id="total-inside">0</p>
+          <div class="stats-card">
+            <div class="p-3 bg-green-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3">
+              <i class="fas fa-sign-out-alt text-green-600"></i>
+            </div>
+            <p class="text-xs text-gray-600 mb-1">Chiqganlar</p>
+            <p class="text-2xl font-bold text-gray-800" id="total-exits">0</p>
+          </div>
+          <div class="stats-card">
+            <div class="p-3 bg-purple-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3">
+              <i class="fas fa-car text-purple-600"></i>
+            </div>
+            <p class="text-xs text-gray-600 mb-1">Ichkarida</p>
+            <p class="text-2xl font-bold text-gray-800" id="total-inside">0</p>
           </div>
         </div>
         
-        <!-- Date Filter -->
-        <div class="mb-4">
-          <label class="text-base text-[#1E2A38] font-semibold mb-1 block">Sana tanlash</label>
-          <input type="date" id="date-filter" class="border border-gray-300 rounded-lg px-3 py-2 w-full focus:ring-2 focus:ring-[#00B894] outline-none transition">
+        <div class="space-y-3">
+          <a href="/cars/" class="primary-btn px-6 py-3 text-sm w-full text-center">
+            <i class="fas fa-cog mr-2"></i>Avtomobillar ro'yxati
+          </a>
         </div>
-        
-        <form class="flex flex-col gap-3 w-full mt-2" autocomplete="off" id="block-form">
-          <label class="text-base text-[#1E2A38] font-semibold">Zapretga raqam qo'shish</label>
-          <div class="flex gap-2">
-            <input type="text" id="block-plate" placeholder="30A123FA" class="border border-gray-300 rounded-lg px-3 py-2 w-full focus:ring-2 focus:ring-[#00B894] outline-none transition" />
-            <button type="submit" class="primary-btn px-4">Qo'shish</button>
-          </div>
-        </form>
-        
-        <!-- Add Car Button -->
-        <button class="mt-3 primary-btn px-4 py-2 w-full" onclick="openAddCarModal()">Avtomobil qo'shish</button>
-        <a href="/cars/" class="mt-2 block text-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">Avtomobillar boshqaruvi</a>
-      </div>
-
-      <!-- Navigatsiya tugmalari -->
-      <div class="bg-white rounded-2xl shadow-lg p-8 grid grid-cols-2 gap-4 min-h-[340px] items-center content-center hover:shadow-2xl transition">
-        <button class="primary-btn py-4 text-base font-semibold shadow hover:scale-105">Arxiv</button>
-        <button class="bg-[#FF9800] text-white py-4 rounded-lg text-base font-semibold shadow hover:scale-105 transition">Zapret</button>
-        <button class="bg-[#E53935] text-white py-4 rounded-lg text-base font-semibold shadow hover:scale-105 transition">Bekor</button>
-        <button class="bg-[#607D8B] text-white py-4 rounded-lg text-base font-semibold shadow hover:scale-105 transition">Sozlamalar</button>
       </div>
     </div>
 
+
+
     <!-- Barcha kirganlar -->
-    <section class="mt-8 bg-white rounded-2xl shadow-lg p-6 max-w-6xl mx-auto">
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-xl font-bold text-[#1E2A38]">Barcha kirganlar</h2>
-        <div class="flex gap-4 items-center">
-          <!-- Filter controls -->
-          <div class="flex gap-2">
-            <input type="text" id="number-filter" placeholder="Raqam bo'yicha qidirish..." class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#00B894] outline-none transition">
-            <select id="status-filter" class="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#00B894] outline-none transition">
-              <option value="all">Hammasi</option>
-              <option value="inside">Ichkarida</option>
-              <option value="exited">Chiqganlar</option>
-              <option value="paid">To'langanlar</option>
-              <option value="unpaid">To'lanmaganlar</option>
-            </select>
+    <section class="table-container max-w-6xl mx-auto">
+      <div class="p-6 border-b border-gray-200">
+        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+          <div class="flex items-center space-x-3">
+            <div class="p-2 bg-gradient-to-r from-green-500 to-blue-600 rounded-lg">
+              <i class="fas fa-list text-white"></i>
+            </div>
+            <div>
+              <h2 class="text-xl font-bold text-gray-800">Avtomobillar ro'yxati</h2>
+              <p class="text-gray-600 text-sm">Kunlik kirish va chiqish ma'lumotlari</p>
+            </div>
           </div>
-          <button onclick="loadUnpaidEntries()" class="payment-btn px-4 py-2">To'lanmaganlar</button>
+          <div class="flex flex-col sm:flex-row gap-3 items-stretch">
+            <!-- Date Filter -->
+            <div class="flex gap-2">
+              <input type="date" id="date-filter" class="input-field">
+              <button onclick="loadTodayData()" class="primary-btn px-4 py-2 text-sm">
+                <i class="fas fa-sync-alt mr-1"></i>Bugun
+              </button>
+            </div>
+            <!-- Filter controls -->
+            <div class="flex gap-2">
+              <input type="text" id="number-filter" placeholder="Raqam bo'yicha qidirish..." 
+                     class="input-field w-48">
+              <select id="status-filter" class="input-field">
+                <option value="all">Hammasi</option>
+                <option value="inside">Ichkarida</option>
+                <option value="exited">Chiqganlar</option>
+                <option value="paid">To'langanlar</option>
+                <option value="unpaid">To'lanmaganlar</option>
+              </select>
+            </div>
+            <button onclick="loadUnpaidEntries()" class="payment-btn px-6 py-3">
+              <i class="fas fa-exclamation-triangle mr-2"></i>To'lanmaganlar
+            </button>
+          </div>
         </div>
       </div>
-      <div class="divide-y divide-gray-100" id="entries-list">
-        <!-- Entries will be populated here -->
+      
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Avtomobil raqami
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Kirish/Chiqish
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Narx
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Holat
+              </th>
+              <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Amallar
+              </th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200" id="entries-list">
+            <!-- Entries will be populated here -->
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="p-6 border-t border-gray-200 bg-gray-50">
+        <div class="flex justify-between items-center">
+          <p class="text-sm text-gray-600">
+            <span id="entries-count">0</span> ta avtomobil topildi
+          </p>
+          <div class="flex gap-2">
+            <button onclick="exportData()" class="primary-btn px-4 py-2 text-sm">
+              <i class="fas fa-download mr-2"></i>Yuklab olish
+            </button>
+            <button onclick="refreshData()" class="success-btn px-4 py-2 text-sm">
+              <i class="fas fa-sync-alt mr-2"></i>Yangilash
+            </button>
+          </div>
+        </div>
       </div>
     </section>
   </div>
 
-  <!-- Add Car Modal -->
-  <div id="addCarModal" class="modal">
-    <div class="modal-content">
-      <h2 class="text-xl font-bold mb-4">Avtomobil qo'shish</h2>
-      <form id="addCarForm" class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700">Raqam</label>
-          <input type="text" id="car-number" placeholder="30A123FA" required class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-[#00B894] outline-none">
-        </div>
-        <div class="space-y-2">
-          <label class="flex items-center">
-            <input type="checkbox" id="is-free" class="rounded border-gray-300 text-[#00B894] focus:ring-[#00B894]">
-            <span class="ml-2 text-sm text-gray-700">Bepul</span>
-          </label>
-          <label class="flex items-center">
-            <input type="checkbox" id="is-special-taxi" class="rounded border-gray-300 text-[#00B894] focus:ring-[#00B894]">
-            <span class="ml-2 text-sm text-gray-700">Maxsus taksi</span>
-          </label>
-          <label class="flex items-center">
-            <input type="checkbox" id="is-blocked" class="rounded border-gray-300 text-[#00B894] focus:ring-[#00B894]">
-            <span class="ml-2 text-sm text-gray-700">Bloklangan</span>
-          </label>
-        </div>
-        <div class="flex gap-2">
-          <button type="submit" class="primary-btn px-4 py-2 flex-1">Qo'shish</button>
-          <button type="button" onclick="closeAddCarModal()" class="bg-gray-500 text-white px-4 py-2 rounded-lg flex-1">Bekor</button>
-        </div>
-      </form>
-    </div>
-  </div>
+
 
   <!-- Payment Modal -->
   <div id="paymentModal" class="modal">
     <div class="modal-content">
-      <h2 class="text-xl font-bold mb-4">To'lov ma'lumotlari</h2>
-      <div id="payment-details" class="space-y-4">
+      <div class="flex justify-between items-center mb-6">
+        <div class="flex items-center space-x-3">
+          <div class="p-2 bg-gradient-to-r from-green-500 to-blue-600 rounded-lg">
+            <i class="fas fa-credit-card text-white"></i>
+          </div>
+          <h2 class="text-xl font-bold text-gray-800">To'lov ma'lumotlari</h2>
+        </div>
+        <button onclick="closePaymentModal()" class="text-gray-400 hover:text-gray-600">
+          <i class="fas fa-times text-xl"></i>
+        </button>
+      </div>
+      <div id="payment-details" class="space-y-6">
         <!-- Payment details will be populated here -->
       </div>
-      <div class="flex gap-2 mt-6">
-        <button onclick="processPayment()" class="payment-btn px-4 py-2 flex-1">To'lovni amalga oshirish</button>
-        <button onclick="closePaymentModal()" class="bg-gray-500 text-white px-4 py-2 rounded-lg flex-1">Bekor</button>
+      <div class="flex gap-3 mt-8">
+        <button onclick="processPayment()" class="payment-btn px-6 py-3 flex-1">
+          <i class="fas fa-check mr-2"></i>To'lovni amalga oshirish
+        </button>
+        <button onclick="closePaymentModal()" class="bg-gray-500 text-white px-6 py-3 rounded-xl flex-1 hover:bg-gray-600 transition">
+          <i class="fas fa-times mr-2"></i>Bekor
+        </button>
       </div>
     </div>
   </div>
@@ -246,12 +477,23 @@
   <!-- Receipt Modal -->
   <div id="receiptModal" class="modal">
     <div class="modal-content">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-bold">Chek</h2>
+      <div class="flex justify-between items-center mb-6">
+        <div class="flex items-center space-x-3">
+          <div class="p-2 bg-gradient-to-r from-green-500 to-blue-600 rounded-lg">
+            <i class="fas fa-receipt text-white"></i>
+          </div>
+          <h2 class="text-xl font-bold text-gray-800">To'lov cheki</h2>
+        </div>
         <div class="flex gap-2">
-          <button onclick="downloadReceiptPDF()" class="primary-btn px-4 py-2">PDF yuklab olish</button>
-          <button onclick="printReceipt()" class="bg-blue-500 text-white px-4 py-2 rounded-lg">Chop etish</button>
-          <button onclick="closeReceiptModal()" class="bg-gray-500 text-white px-4 py-2 rounded-lg">Yopish</button>
+          <button onclick="downloadReceiptPDF()" class="primary-btn px-4 py-2 text-sm">
+            <i class="fas fa-download mr-2"></i>PDF
+          </button>
+          <button onclick="printReceipt()" class="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm">
+            <i class="fas fa-print mr-2"></i>Chop etish
+          </button>
+          <button onclick="closeReceiptModal()" class="bg-gray-500 text-white px-4 py-2 rounded-lg text-sm">
+            <i class="fas fa-times mr-2"></i>Yopish
+          </button>
         </div>
       </div>
       <div id="receipt-content" class="receipt">
@@ -305,9 +547,7 @@
         case 'payment_update':
           handlePaymentUpdate(data.data);
           break;
-        case 'car_added':
-          handleCarAdded(data.data);
-          break;
+
         case 'car_blocked':
           handleCarBlocked(data.data);
           break;
@@ -463,44 +703,100 @@
     // Update vehicle entries
     function updateVehicleEntries(entries) {
       const entriesList = document.getElementById('entries-list');
+      const entriesCount = document.getElementById('entries-count');
       entriesList.innerHTML = '';
       
+      entriesCount.textContent = entries.length;
+      
+      if (entries.length === 0) {
+        entriesList.innerHTML = `
+          <tr>
+            <td colspan="5" class="px-6 py-8 text-center">
+              <div class="flex flex-col items-center">
+                <div class="p-4 bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mb-4">
+                  <i class="fas fa-search text-gray-400 text-2xl"></i>
+                </div>
+                <p class="text-gray-500 text-lg font-medium">Hech qanday yozuv topilmadi</p>
+                <p class="text-gray-400 text-sm">Boshqa filtrlarni sinab ko'ring</p>
+              </div>
+            </td>
+          </tr>
+        `;
+        return;
+      }
+      
       entries.forEach(entry => {
-        const entryDiv = document.createElement('div');
-        entryDiv.className = 'flex justify-between items-center py-3';
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-gray-50 transition-colors';
         
-        const statusClass = entry.is_paid ? 'text-green-600' : 'text-red-600';
-        const statusText = entry.is_paid ? 'To\'langan' : 'To\'lanmagan';
-        const statusBadge = entry.status === 'inside' ? 'text-blue-600' : statusClass;
-        const statusTextFull = entry.status === 'inside' ? 'Ichkarida' : statusText;
+        // Status badge
+        let statusBadge = '';
+        let statusClass = '';
+        if (entry.status === 'inside') {
+          statusBadge = 'Ichkarida';
+          statusClass = 'status-inside';
+        } else if (entry.is_paid) {
+          statusBadge = 'To\'langan';
+          statusClass = 'status-paid';
+        } else {
+          statusBadge = 'To\'lanmagan';
+          statusClass = 'status-unpaid';
+        }
         
-        entryDiv.innerHTML = `
-          <div class="flex flex-col">
-            <span class="font-semibold text-[#1E2A38]">${entry.number_plate}</span>
-            <span class="text-sm text-gray-500">
-              Kirish: ${entry.entry_time} 
-              ${entry.exit_time ? `| Chiqish: ${entry.exit_time}` : ''}
-            </span>
-            <span class="text-sm ${statusBadge}">${entry.total_amount} so'm - ${statusTextFull}</span>
-          </div>
-          <div class="flex gap-2">
-            ${entry.exit_time && !entry.is_paid ? 
-              `<button class="payment-btn px-4 py-1 text-sm" onclick="openPaymentModal(${entry.id}, '${entry.number_plate}', ${entry.total_amount}, '${entry.entry_time}', '${entry.exit_time}')">To'lov</button>` : 
-              ''
-            }
-            ${entry.exit_time && entry.is_paid ? 
-              `<button class="primary-btn px-4 py-1 text-sm" onclick="showReceipt(${entry.id}, '${entry.number_plate}', ${entry.total_amount}, '${entry.entry_time}', '${entry.exit_time}')">Chek</button>` : 
-              ''
-            }
-            ${entry.status === 'inside' ? 
-              `<span class="text-sm ${statusBadge} px-3 py-1 rounded">${statusTextFull}</span>` : 
-              ''
-            }
-            <button class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600" onclick="deleteEntry(${entry.id})">O'chirish</button>
-          </div>
+        // Action buttons
+        let actionButtons = '';
+        if (entry.exit_time && !entry.is_paid) {
+          actionButtons += `
+            <button class="payment-btn px-3 py-1 text-xs mr-2" 
+                    onclick="openPaymentModal(${entry.id}, '${entry.number_plate}', ${entry.total_amount}, '${entry.entry_time}', '${entry.exit_time}')">
+              <i class="fas fa-credit-card mr-1"></i>To'lov
+            </button>
+          `;
+        } else if (entry.exit_time && entry.is_paid) {
+          actionButtons += `
+            <button class="primary-btn px-3 py-1 text-xs mr-2" 
+                    onclick="showReceipt(${entry.id}, '${entry.number_plate}', ${entry.total_amount}, '${entry.entry_time}', '${entry.exit_time}')">
+              <i class="fas fa-receipt mr-1"></i>Chek
+            </button>
+          `;
+        }
+        
+        actionButtons += `
+          <button class="bg-red-500 text-white px-3 py-1 rounded text-xs hover:bg-red-600 transition-colors" 
+                  onclick="deleteEntry(${entry.id})">
+            <i class="fas fa-trash mr-1"></i>O'chirish
+          </button>
         `;
         
-        entriesList.appendChild(entryDiv);
+        row.innerHTML = `
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="flex items-center">
+              <div class="bg-blue-600 text-white px-2 py-1 rounded text-xs font-bold mr-3">UZ</div>
+              <div>
+                <div class="text-sm font-medium text-gray-900">${entry.number_plate}</div>
+                <div class="text-sm text-gray-500">ID: ${entry.id}</div>
+              </div>
+            </div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="text-sm text-gray-900">
+              <div><i class="fas fa-sign-in-alt text-green-500 mr-2"></i>${entry.entry_time}</div>
+              ${entry.exit_time ? `<div><i class="fas fa-sign-out-alt text-red-500 mr-2"></i>${entry.exit_time}</div>` : ''}
+            </div>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="text-sm font-medium text-gray-900">${entry.total_amount} so'm</div>
+            ${entry.exit_time ? `<div class="text-xs text-gray-500">${Math.round((new Date(entry.exit_time) - new Date(entry.entry_time)) / (1000 * 60 * 60) * 100) / 100} soat</div>` : ''}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <span class="status-badge ${statusClass}">${statusBadge}</span>
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+            ${actionButtons}
+          </td>
+        `;
+        
+        entriesList.appendChild(row);
       });
     }
 
@@ -510,23 +806,38 @@
       
       const paymentDetails = document.getElementById('payment-details');
       paymentDetails.innerHTML = `
-        <div class="bg-gray-50 p-4 rounded-lg">
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Avtomobil raqami</label>
-              <p class="text-lg font-semibold">${numberPlate}</p>
+        <div class="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-xl border border-blue-200">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-2">
+              <label class="block text-sm font-medium text-gray-600">Avtomobil raqami</label>
+              <div class="flex items-center">
+                <div class="bg-blue-600 text-white px-3 py-2 rounded text-sm font-bold mr-3">UZ</div>
+                <p class="text-xl font-bold text-gray-800">${numberPlate}</p>
+              </div>
             </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700">To'lov miqdori</label>
-              <p class="text-lg font-semibold text-[#FF6B35]">${amount} so'm</p>
+            <div class="space-y-2">
+              <label class="block text-sm font-medium text-gray-600">To'lov miqdori</label>
+              <p class="text-2xl font-bold text-red-600">${amount} so'm</p>
             </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Kirish vaqti</label>
-              <p class="text-sm">${entryTime}</p>
+            <div class="space-y-2">
+              <label class="block text-sm font-medium text-gray-600">Kirish vaqti</label>
+              <div class="flex items-center">
+                <i class="fas fa-sign-in-alt text-green-500 mr-2"></i>
+                <p class="text-lg font-semibold text-gray-800">${entryTime}</p>
+              </div>
             </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Chiqish vaqti</label>
-              <p class="text-sm">${exitTime}</p>
+            <div class="space-y-2">
+              <label class="block text-sm font-medium text-gray-600">Chiqish vaqti</label>
+              <div class="flex items-center">
+                <i class="fas fa-sign-out-alt text-red-500 mr-2"></i>
+                <p class="text-lg font-semibold text-gray-800">${exitTime}</p>
+              </div>
+            </div>
+          </div>
+          <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div class="flex items-center">
+              <i class="fas fa-info-circle text-yellow-600 mr-2"></i>
+              <p class="text-sm text-yellow-800">To'lov amalga oshirilgandan so'ng chek ko'rsatiladi</p>
             </div>
           </div>
         </div>
@@ -741,25 +1052,7 @@
       }
     }
 
-    // Add car modal functions
-    function openAddCarModal() {
-      document.getElementById('addCarModal').style.display = 'block';
-    }
 
-    function closeAddCarModal() {
-      document.getElementById('addCarModal').style.display = 'none';
-      document.getElementById('addCarForm').reset();
-    }
-
-    // Handle car added
-    function handleCarAdded(data) {
-      if (data.success) {
-        showNotification('Avtomobil muvaffaqiyatli qo\'shildi', 'success');
-        closeAddCarModal();
-      } else {
-        showNotification('Xatolik yuz berdi: ' + data.error, 'error');
-      }
-    }
 
     // Handle car blocked
     function handleCarBlocked(data) {
@@ -839,13 +1132,83 @@
                      type === 'error' ? 'notification-error' : 
                      type === 'info' ? 'notification-info' : 'notification-info';
       
-      notification.className = `fixed top-4 right-4 p-4 rounded-lg text-white z-50 ${bgClass}`;
-      notification.textContent = message;
+      notification.className = `notification ${bgClass}`;
+      notification.innerHTML = `
+        <div class="flex items-center">
+          <i class="fas ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'} mr-3"></i>
+          <span>${message}</span>
+        </div>
+      `;
       document.body.appendChild(notification);
       
       setTimeout(() => {
         notification.remove();
       }, 3000);
+    }
+
+    // Load today's data
+    function loadTodayData() {
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('date-filter').value = today;
+      
+      socket.send(JSON.stringify({
+        type: 'get_statistics',
+        date: today
+      }));
+      
+      loadVehicleEntries();
+      loadLatestUnpaidEntry();
+      showNotification('Bugungi avtomobillar yuklandi', 'info');
+    }
+
+    // Refresh data
+    function refreshData() {
+      const selectedDate = document.getElementById('date-filter').value;
+      
+      socket.send(JSON.stringify({
+        type: 'get_statistics',
+        date: selectedDate
+      }));
+      
+      loadVehicleEntries();
+      loadLatestUnpaidEntry();
+      showNotification('Ro\'yxat yangilandi', 'success');
+    }
+
+    // Export data
+    function exportData() {
+      const selectedDate = document.getElementById('date-filter').value;
+      const numberFilter = document.getElementById('number-filter').value;
+      const statusFilter = document.getElementById('status-filter').value;
+      
+      // Create CSV content
+      let csvContent = 'data:text/csv;charset=utf-8,';
+      csvContent += 'Raqam,Kirish vaqti,Chiqish vaqti,To\'lov miqdori,Holat\n';
+      
+      // Get current entries and add to CSV
+      const entries = document.querySelectorAll('#entries-list tr');
+      entries.forEach(entry => {
+        const cells = entry.querySelectorAll('td');
+        if (cells.length > 0) {
+          const numberPlate = cells[0].textContent.trim();
+          const times = cells[1].textContent.trim();
+          const amount = cells[2].textContent.trim();
+          const status = cells[3].textContent.trim();
+          
+          csvContent += `"${numberPlate}","${times}","${amount}","${status}"\n`;
+        }
+      });
+      
+      // Download CSV file
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `avtomobillar_${selectedDate}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showNotification('Ro\'yxat yuklab olindi', 'success');
     }
 
     // Event listeners
@@ -855,12 +1218,15 @@
       // Date filter change
       document.getElementById('date-filter').addEventListener('change', function() {
         const selectedDate = this.value;
-        socket.send(JSON.stringify({
-          type: 'get_statistics',
-          date: selectedDate
-        }));
-        loadVehicleEntries();
-        loadLatestUnpaidEntry();
+        if (selectedDate) {
+          socket.send(JSON.stringify({
+            type: 'get_statistics',
+            date: selectedDate
+          }));
+          loadVehicleEntries();
+          loadLatestUnpaidEntry();
+          showNotification(`${selectedDate} sanadagi avtomobillar yuklandi`, 'info');
+        }
       });
       
       // Number filter change
@@ -885,29 +1251,13 @@
         }
       });
       
-      // Add car form
-      document.getElementById('addCarForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const carData = {
-          type: 'add_car',
-          number_plate: document.getElementById('car-number').value.trim(),
-          is_free: document.getElementById('is-free').checked,
-          is_special_taxi: document.getElementById('is-special-taxi').checked,
-          is_blocked: document.getElementById('is-blocked').checked
-        };
-        
-        socket.send(JSON.stringify(carData));
-      });
+
       
       // Close modals when clicking outside
       window.onclick = function(event) {
-        const addCarModal = document.getElementById('addCarModal');
         const paymentModal = document.getElementById('paymentModal');
         const receiptModal = document.getElementById('receiptModal');
         
-        if (event.target === addCarModal) {
-          closeAddCarModal();
-        }
         if (event.target === paymentModal) {
           closePaymentModal();
         }
