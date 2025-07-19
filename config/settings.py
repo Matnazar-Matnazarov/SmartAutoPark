@@ -126,10 +126,8 @@ LANGUAGE_CODE = "uz-uz"
 TIME_ZONE = "Asia/Tashkent"
 
 USE_I18N = True
-
+USE_TZ = False
 USE_L10N = True
-
-USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
@@ -156,3 +154,9 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
 HOUR_PRICE = 4000
 
 AUTH_USER_MODEL = "smartpark.CustomUser"
+
+import pytz
+from django.utils import timezone
+
+now = timezone.now()  # UTC
+tashkent_time = now.astimezone(pytz.timezone('Asia/Tashkent'))

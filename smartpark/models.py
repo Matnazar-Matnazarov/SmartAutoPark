@@ -2,7 +2,7 @@ from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import AbstractUser
 from datetime import datetime
-
+from config.settings import tashkent_time
 class Role(models.TextChoices):
     OPERATOR = "operator"
     ADMIN = "admin"
@@ -23,7 +23,7 @@ class CustomUser(AbstractUser):
 
 class VehicleEntry(models.Model):
     number_plate = models.CharField(max_length=15)
-    entry_time = models.DateTimeField(auto_now_add=True)
+    entry_time = models.DateTimeField(default=tashkent_time)
     exit_time = models.DateTimeField(blank=True, null=True)
     entry_image = models.ImageField(upload_to="entries/")
     exit_image = models.ImageField(upload_to="exits/", blank=True, null=True)
@@ -32,7 +32,7 @@ class VehicleEntry(models.Model):
 
     def __str__(self):
         # Ensure timezone-aware formatting
-        entry_time = timezone.localtime(self.entry_time) if timezone.is_naive(self.entry_time) else self.entry_time
+        entry_time = self.entry_time
         return f"{self.number_plate} - {entry_time.strftime('%Y-%m-%d %H:%M')}"
 
     def calculate_amount(self):
@@ -43,8 +43,8 @@ class VehicleEntry(models.Model):
         from config.settings import HOUR_PRICE
 
         # Ensure both times are timezone-aware
-        entry_time = timezone.localtime(self.entry_time) if timezone.is_naive(self.entry_time) else self.entry_time
-        exit_time = timezone.localtime(self.exit_time) if timezone.is_naive(self.exit_time) else self.exit_time
+        entry_time = self.entry_time
+        exit_time = self.exit_time
         
         duration = exit_time - entry_time
         hours = duration.total_seconds() / 3600

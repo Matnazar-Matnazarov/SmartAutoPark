@@ -11,5 +11,6 @@ dependencies = [
     "environs>=14.2.0",
     "pillow>=11.3.0",
     "psycopg2-binary>=2.9.10",
+    "pytz>=2025.2",
     "ruff>=0.12.4",
 ]

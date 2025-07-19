@@ -154,8 +154,8 @@ class HomeConsumer(AsyncWebsocketConsumer):
         entries_data = []
         for entry in entries:
             # Ensure timezone-aware formatting
-            entry_time = timezone.localtime(entry.entry_time) if timezone.is_naive(entry.entry_time) else entry.entry_time
-            exit_time = timezone.localtime(entry.exit_time) if entry.exit_time and timezone.is_naive(entry.exit_time) else entry.exit_time
+            entry_time = entry.entry_time
+            exit_time = entry.exit_time
             
             entries_data.append(
                 {
@@ -220,8 +220,8 @@ class HomeConsumer(AsyncWebsocketConsumer):
         
         if latest_entry:
             # Ensure timezone-aware formatting
-            entry_time = timezone.localtime(latest_entry.entry_time) if timezone.is_naive(latest_entry.entry_time) else latest_entry.entry_time
-            exit_time = timezone.localtime(latest_entry.exit_time) if timezone.is_naive(latest_entry.exit_time) else latest_entry.exit_time
+            entry_time = latest_entry.entry_time
+            exit_time = latest_entry.exit_time
             
             return {
                 'id': latest_entry.id,
@@ -259,8 +259,8 @@ class HomeConsumer(AsyncWebsocketConsumer):
         entries_data = []
         for entry in unpaid_entries:
             # Ensure timezone-aware formatting
-            entry_time = timezone.localtime(entry.entry_time) if timezone.is_naive(entry.entry_time) else entry.entry_time
-            exit_time = timezone.localtime(entry.exit_time) if timezone.is_naive(entry.exit_time) else entry.exit_time
+            entry_time = entry.entry_time
+            exit_time = entry.exit_time
             
             entries_data.append(
                 {
@@ -286,8 +286,8 @@ class HomeConsumer(AsyncWebsocketConsumer):
                 return {"success": False, "error": "Entry is not paid"}
 
             # Ensure timezone-aware formatting
-            entry_time = timezone.localtime(entry.entry_time) if timezone.is_naive(entry.entry_time) else entry.entry_time
-            exit_time = timezone.localtime(entry.exit_time) if entry.exit_time and timezone.is_naive(entry.exit_time) else entry.exit_time
+            entry_time = entry.entry_time
+            exit_time = entry.exit_time
 
             receipt_data = {
                 "id": entry.id,

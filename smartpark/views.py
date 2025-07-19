@@ -458,8 +458,8 @@ def get_unpaid_entries(request):
         entries_data = []
         for entry in unpaid_entries:
             # Ensure timezone-aware formatting
-            entry_time = timezone.localtime(entry.entry_time) if timezone.is_naive(entry.entry_time) else entry.entry_time
-            exit_time = timezone.localtime(entry.exit_time) if timezone.is_naive(entry.exit_time) else entry.exit_time
+            entry_time = entry.entry_time
+            exit_time = entry.exit_time
             
             entries_data.append(
                 {
@@ -517,8 +517,8 @@ def get_receipt(request):
             return JsonResponse({"error": "Entry is not paid"}, status=400)
 
         # Ensure timezone-aware formatting
-        entry_time = timezone.localtime(entry.entry_time) if timezone.is_naive(entry.entry_time) else entry.entry_time
-        exit_time = timezone.localtime(entry.exit_time) if entry.exit_time and timezone.is_naive(entry.exit_time) else entry.exit_time
+        entry_time = entry.entry_time
+        exit_time = entry.exit_time
 
         receipt_data = {
             "id": entry.id,
