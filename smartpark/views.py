@@ -68,7 +68,7 @@ def receive_entry(request):
             )
 
             # 2. Faylni multipart dan ajratish
-            # Bu oddiy variant: multipart so‘rovdan rasmni olish
+            # Bu oddiy variant: multipart so'rovdan rasmni olish
             boundary = (
                 content_type.split("boundary=")[-1]
                 if "boundary=" in content_type
@@ -87,16 +87,16 @@ def receive_entry(request):
 
                 if image_data:
                     # 3. Fayl nomi: Raqam + sana (20250717_135501.jpg)
-                    timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
+                    current_time = timezone.now()
+                    timestamp = current_time.strftime("%Y%m%d_%H%M%S")
                     filename = f"{number_plate}_{timestamp}.jpg"
 
                     # 4. Rasmdan ImageField fayl obyektini yasaymiz
                     image_file = ContentFile(image_data, name=filename)
 
-                    # 5. Bazaga yozamiz
+                    # 5. Bazaga yozamiz - entry_time auto_now_add=True bo'lgani uchun o'rnatmaymiz
                     entry = VehicleEntry.objects.create(
                         number_plate=number_plate,
-                        entry_time=timezone.now(),
                         entry_image=image_file,
                         total_amount=0,
                     )
@@ -122,7 +122,13 @@ def receive_exit(request):
             content_type = request.headers.get("Content-Type", "")
             body_bytes = request.body
             body_str = body_bytes.decode("utf-8", errors="ignore")
-            today = timezone.now()
+            current_time = timezone.now()
+            
+            # Create timezone-aware datetime range for today
+            today = current_time.date()
+            start_datetime = timezone.make_aware(datetime.combine(today, datetime.min.time()))
+            end_datetime = timezone.make_aware(datetime.combine(today, datetime.max.time()))
+            
             # 1. XML'dan davlat raqamini ajratamiz (masalan <licensePlate> tagidan)
             number_plate_match = re.search(
                 r"<licensePlate>(.*?)</licensePlate>", body_str
@@ -130,11 +136,12 @@ def receive_exit(request):
             number_plate = (
                 number_plate_match.group(1)
                 if number_plate_match
-                else f"TEMP{timezone.now().strftime('%H%M%S')}"
+                else f"TEMP{current_time.strftime('%H%M%S')}"
             )
             car = Cars.objects.filter(number_plate=number_plate).first()
+            
             # 2. Faylni multipart dan ajratish
-            # Bu oddiy variant: multipart so‘rovdan rasmni olish
+            # Bu oddiy variant: multipart so'rovdan rasmni olish
             boundary = (
                 content_type.split("boundary=")[-1]
                 if "boundary=" in content_type
@@ -153,14 +160,18 @@ def receive_exit(request):
 
                 if image_data:
                     # 3. Fayl nomi: Raqam + sana (20250717_135501.jpg)
-                    timestamp = timezone.now().strftime("%Y%m%d_%H%M%S")
+                    timestamp = current_time.strftime("%Y%m%d_%H%M%S")
                     filename = f"{number_plate}_{timestamp}.jpg"
 
                     # 4. Rasmdan ImageField fayl obyektini yasaymiz
                     image_file = ContentFile(image_data, name=filename)
+                    
+                    # Use timezone-aware datetime range instead of naive date
                     latest_entry = (
                         VehicleEntry.objects.filter(
-                            number_plate=number_plate, entry_time__date=today
+                            number_plate=number_plate, 
+                            entry_time__gte=start_datetime,
+                            entry_time__lte=end_datetime
                         )
                         .order_by("-entry_time")
                         .first()
@@ -170,24 +181,26 @@ def receive_exit(request):
                         if car and car.is_free and not car.is_blocked:
                             latest_entry.exit_image = image_file
                             latest_entry.total_amount = 0
-                            latest_entry.exit_time = timezone.now()
+                            latest_entry.exit_time = current_time
                             latest_entry.save()
                         elif car and car.is_special_taxi and not car.is_blocked:
                             latest_entry.exit_image = image_file
                             latest_entry.total_amount = (
                                 latest_entry.calculate_amount()
                                 if VehicleEntry.objects.filter(
-                                    entry_time=today, number_plate=number_plate
+                                    entry_time__gte=start_datetime,
+                                    entry_time__lte=end_datetime, 
+                                    number_plate=number_plate
                                 ).count()
                                 < 2
                                 else 0
                             )
-                            latest_entry.exit_time = timezone.now()
+                            latest_entry.exit_time = current_time
                             latest_entry.save()
                         else:
                             if (car and not car.is_blocked) or not car:
                                 latest_entry.exit_image = image_file
-                                latest_entry.exit_time = timezone.now()
+                                latest_entry.exit_time = current_time
                                 latest_entry.total_amount = (
                                     latest_entry.calculate_amount()
                                 )
@@ -221,11 +234,22 @@ def get_statistics(request):
     """Get statistics for a specific date"""
     date_str = request.GET.get("date", timezone.now().date().isoformat())
     try:
-        date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        # Convert date string to timezone-aware datetime for proper filtering
+        date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+        # Create timezone-aware datetime range for the entire day
+        start_datetime = timezone.make_aware(datetime.combine(date_obj, datetime.min.time()))
+        end_datetime = timezone.make_aware(datetime.combine(date_obj, datetime.max.time()))
     except ValueError:
-        date = timezone.now().date()
+        # Fallback to today if date parsing fails
+        today = timezone.now().date()
+        start_datetime = timezone.make_aware(datetime.combine(today, datetime.min.time()))
+        end_datetime = timezone.make_aware(datetime.combine(today, datetime.max.time()))
 
-    today_entries = VehicleEntry.objects.filter(entry_time__date=date)
+    # Use timezone-aware datetime range instead of naive date
+    today_entries = VehicleEntry.objects.filter(
+        entry_time__gte=start_datetime,
+        entry_time__lte=end_datetime
+    )
     total_entries = today_entries.count()
     total_exits = today_entries.filter(exit_time__isnull=False).count()
     total_inside = total_entries - total_exits
@@ -255,13 +279,22 @@ def get_vehicle_entries(request):
         )  # all, paid, unpaid, inside, exited
 
         try:
-            date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            # Convert date string to timezone-aware datetime for proper filtering
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+            # Create timezone-aware datetime range for the entire day
+            start_datetime = timezone.make_aware(datetime.combine(date_obj, datetime.min.time()))
+            end_datetime = timezone.make_aware(datetime.combine(date_obj, datetime.max.time()))
         except ValueError:
-            date = timezone.now().date()
+            # Fallback to today if date parsing fails
+            today = timezone.now().date()
+            start_datetime = timezone.make_aware(datetime.combine(today, datetime.min.time()))
+            end_datetime = timezone.make_aware(datetime.combine(today, datetime.max.time()))
 
-        entries = VehicleEntry.objects.filter(entry_time__date=date).order_by(
-            "-entry_time"
-        )
+        # Use timezone-aware datetime range instead of naive date
+        entries = VehicleEntry.objects.filter(
+            entry_time__gte=start_datetime,
+            entry_time__lte=end_datetime
+        ).order_by("-entry_time")
 
         if number_plate_filter:
             entries = entries.filter(number_plate__icontains=number_plate_filter)
@@ -278,13 +311,17 @@ def get_vehicle_entries(request):
 
         entries_data = []
         for entry in entries:
+            # Ensure timezone-aware formatting
+            entry_time = timezone.localtime(entry.entry_time) if timezone.is_naive(entry.entry_time) else entry.entry_time
+            exit_time = timezone.localtime(entry.exit_time) if entry.exit_time and timezone.is_naive(entry.exit_time) else entry.exit_time
+            
             entries_data.append(
                 {
                     "id": entry.id,
                     "number_plate": entry.number_plate,
-                    "entry_time": entry.entry_time.strftime("%H:%M"),
-                    "exit_time": entry.exit_time.strftime("%H:%M")
-                    if entry.exit_time
+                    "entry_time": entry_time.strftime("%H:%M"),
+                    "exit_time": exit_time.strftime("%H:%M")
+                    if exit_time
                     else None,
                     "total_amount": entry.total_amount or 0,
                     "is_paid": entry.is_paid,
@@ -399,26 +436,40 @@ def get_unpaid_entries(request):
         date_str = request.GET.get("date", timezone.now().date().isoformat())
 
         try:
-            date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            # Convert date string to timezone-aware datetime for proper filtering
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+            # Create timezone-aware datetime range for the entire day
+            start_datetime = timezone.make_aware(datetime.combine(date_obj, datetime.min.time()))
+            end_datetime = timezone.make_aware(datetime.combine(date_obj, datetime.max.time()))
         except ValueError:
-            date = timezone.now().date()
+            # Fallback to today if date parsing fails
+            today = timezone.now().date()
+            start_datetime = timezone.make_aware(datetime.combine(today, datetime.min.time()))
+            end_datetime = timezone.make_aware(datetime.combine(today, datetime.max.time()))
 
-        # Get unpaid entries that have exited
+        # Get unpaid entries that have exited using timezone-aware datetime range
         unpaid_entries = VehicleEntry.objects.filter(
-            entry_time__date=date, is_paid=False, exit_time__isnull=False
+            entry_time__gte=start_datetime,
+            entry_time__lte=end_datetime,
+            is_paid=False, 
+            exit_time__isnull=False
         ).order_by("-exit_time")
 
         entries_data = []
         for entry in unpaid_entries:
+            # Ensure timezone-aware formatting
+            entry_time = timezone.localtime(entry.entry_time) if timezone.is_naive(entry.entry_time) else entry.entry_time
+            exit_time = timezone.localtime(entry.exit_time) if timezone.is_naive(entry.exit_time) else entry.exit_time
+            
             entries_data.append(
                 {
                     "id": entry.id,
                     "number_plate": entry.number_plate,
-                    "entry_time": entry.entry_time.strftime("%H:%M"),
-                    "exit_time": entry.exit_time.strftime("%H:%M"),
+                    "entry_time": entry_time.strftime("%H:%M"),
+                    "exit_time": exit_time.strftime("%H:%M"),
                     "total_amount": entry.total_amount or 0,
                     "duration_hours": round(
-                        (entry.exit_time - entry.entry_time).total_seconds() / 3600, 2
+                        (exit_time - entry_time).total_seconds() / 3600, 2
                     ),
                 }
             )
@@ -465,17 +516,21 @@ def get_receipt(request):
         if not entry.is_paid:
             return JsonResponse({"error": "Entry is not paid"}, status=400)
 
+        # Ensure timezone-aware formatting
+        entry_time = timezone.localtime(entry.entry_time) if timezone.is_naive(entry.entry_time) else entry.entry_time
+        exit_time = timezone.localtime(entry.exit_time) if entry.exit_time and timezone.is_naive(entry.exit_time) else entry.exit_time
+
         receipt_data = {
             "id": entry.id,
             "number_plate": entry.number_plate,
-            "entry_time": entry.entry_time.strftime("%H:%M"),
-            "exit_time": entry.exit_time.strftime("%H:%M") if entry.exit_time else None,
+            "entry_time": entry_time.strftime("%H:%M"),
+            "exit_time": exit_time.strftime("%H:%M") if exit_time else None,
             "total_amount": entry.total_amount or 0,
             "is_paid": entry.is_paid,
             "duration_hours": round(
-                (entry.exit_time - entry.entry_time).total_seconds() / 3600, 2
+                (exit_time - entry_time).total_seconds() / 3600, 2
             )
-            if entry.exit_time
+            if exit_time
             else 0,
         }
 
@@ -485,3 +540,113 @@ def get_receipt(request):
         return JsonResponse({"error": "Entry not found"}, status=404)
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+class CarsManagementView(LoginRequiredMixin, View):
+    def get(self, request):
+        cars = Cars.objects.all().order_by('-id')
+        
+        # Calculate stats
+        total_cars = cars.count()
+        free_cars = cars.filter(is_free=True).count()
+        special_taxi = cars.filter(is_special_taxi=True).count()
+        blocked_cars = cars.filter(is_blocked=True).count()
+        
+        context = {
+            'cars': cars,
+            'total_cars': total_cars,
+            'free_cars': free_cars,
+            'special_taxi': special_taxi,
+            'blocked_cars': blocked_cars,
+        }
+        return render(request, 'cars_management.html', context)
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def create_car(request):
+    """Create a new car"""
+    try:
+        data = json.loads(request.body)
+        number_plate = data.get("number_plate")
+        is_free = data.get("is_free", False)
+        is_special_taxi = data.get("is_special_taxi", False)
+        is_blocked = data.get("is_blocked", False)
+
+        if not number_plate:
+            return JsonResponse(
+                {"success": False, "error": "Number plate is required"}, status=400
+            )
+
+        # Check if car already exists
+        if Cars.objects.filter(number_plate=number_plate).exists():
+            return JsonResponse(
+                {"success": False, "error": "Bu raqamli avtomobil allaqachon mavjud"}, status=400
+            )
+
+        car = Cars.objects.create(
+            number_plate=number_plate,
+            is_free=is_free,
+            is_special_taxi=is_special_taxi,
+            is_blocked=is_blocked,
+        )
+
+        return JsonResponse(
+            {
+                "success": True,
+                "car": {
+                    "id": car.id,
+                    "number_plate": car.number_plate,
+                    "is_free": car.is_free,
+                    "is_special_taxi": car.is_special_taxi,
+                    "is_blocked": car.is_blocked,
+                },
+            }
+        )
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+@csrf_exempt
+@require_http_methods(["PUT"])
+def update_car(request, car_id):
+    """Update an existing car"""
+    try:
+        data = json.loads(request.body)
+        is_free = data.get("is_free", False)
+        is_special_taxi = data.get("is_special_taxi", False)
+        is_blocked = data.get("is_blocked", False)
+
+        car = Cars.objects.get(id=car_id)
+        car.is_free = is_free
+        car.is_special_taxi = is_special_taxi
+        car.is_blocked = is_blocked
+        car.save()
+
+        return JsonResponse(
+            {
+                "success": True,
+                "car": {
+                    "id": car.id,
+                    "number_plate": car.number_plate,
+                    "is_free": car.is_free,
+                    "is_special_taxi": car.is_special_taxi,
+                    "is_blocked": car.is_blocked,
+                },
+            }
+        )
+    except Cars.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Car not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def delete_car(request, car_id):
+    """Delete a car"""
+    try:
+        car = Cars.objects.get(id=car_id)
+        car.delete()
+        return JsonResponse({"success": True, "car_id": car_id})
+    except Cars.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Car not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=400)

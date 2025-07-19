@@ -13,7 +13,12 @@ from .views import (
     block_car,
     get_unpaid_entries,
     get_receipt,
-    FreePlateNumberView, DeleteFreePlateView
+    FreePlateNumberView, 
+    DeleteFreePlateView,
+    CarsManagementView,
+    create_car,
+    update_car,
+    delete_car
 )
 from django.conf import settings
 from django.conf.urls.static import static
@@ -28,6 +33,11 @@ urlpatterns = (
         path("login/", LoginView.as_view(), name="login"),
         path("logout/", LogoutView.as_view(), name="logout"),
         path("home/", HomeView.as_view(), name="home"),
+        # Cars management
+        path("cars/", CarsManagementView.as_view(), name="cars_management"),
+        path("api/cars/create/", create_car, name="create_car"),
+        path("api/cars/<int:car_id>/update/", update_car, name="update_car"),
+        path("api/cars/<int:car_id>/delete/", delete_car, name="delete_car"),
         # New API endpoints
         path("api/statistics/", get_statistics, name="get_statistics"),
         path("api/vehicle-entries/", get_vehicle_entries, name="get_vehicle_entries"),

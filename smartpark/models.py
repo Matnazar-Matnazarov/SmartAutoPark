@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from django.contrib.auth.models import AbstractUser
-
+from datetime import datetime
 
 class Role(models.TextChoices):
     OPERATOR = "operator"
@@ -23,7 +23,7 @@ class CustomUser(AbstractUser):
 
 class VehicleEntry(models.Model):
     number_plate = models.CharField(max_length=15)
-    entry_time = models.DateTimeField(default=timezone.now)
+    entry_time = models.DateTimeField(auto_now_add=True)
     exit_time = models.DateTimeField(blank=True, null=True)
     entry_image = models.ImageField(upload_to="entries/")
     exit_image = models.ImageField(upload_to="exits/", blank=True, null=True)
@@ -31,7 +31,9 @@ class VehicleEntry(models.Model):
     is_paid = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.number_plate} - {self.entry_time.strftime('%Y-%m-%d %H:%M')}"
+        # Ensure timezone-aware formatting
+        entry_time = timezone.localtime(self.entry_time) if timezone.is_naive(self.entry_time) else self.entry_time
+        return f"{self.number_plate} - {entry_time.strftime('%Y-%m-%d %H:%M')}"
 
     def calculate_amount(self):
         """Calculate parking fee based on time spent"""
@@ -40,8 +42,16 @@ class VehicleEntry(models.Model):
 
         from config.settings import HOUR_PRICE
 
-        duration = self.exit_time - self.entry_time
+        # Ensure both times are timezone-aware
+        entry_time = timezone.localtime(self.entry_time) if timezone.is_naive(self.entry_time) else self.entry_time
+        exit_time = timezone.localtime(self.exit_time) if timezone.is_naive(self.exit_time) else self.exit_time
+        
+        duration = exit_time - entry_time
         hours = duration.total_seconds() / 3600
+        
+        # Round up to the nearest hour for billing
+        hours = max(1, round(hours + 0.5))  # At least 1 hour, round up
+        
         return int(hours * HOUR_PRICE)
 
     def mark_as_paid(self):

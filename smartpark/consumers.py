@@ -84,12 +84,22 @@ class HomeConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def get_statistics(self, date_str):
         try:
-            date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            # Convert date string to timezone-aware datetime for proper filtering
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+            # Create timezone-aware datetime range for the entire day
+            start_datetime = timezone.make_aware(datetime.combine(date_obj, datetime.min.time()))
+            end_datetime = timezone.make_aware(datetime.combine(date_obj, datetime.max.time()))
         except ValueError:
-            date = timezone.now().date()
+            # Fallback to today if date parsing fails
+            today = timezone.now().date()
+            start_datetime = timezone.make_aware(datetime.combine(today, datetime.min.time()))
+            end_datetime = timezone.make_aware(datetime.combine(today, datetime.max.time()))
 
-        # Get today's entries
-        today_entries = VehicleEntry.objects.filter(entry_time__date=date)
+        # Get today's entries using timezone-aware datetime range
+        today_entries = VehicleEntry.objects.filter(
+            entry_time__gte=start_datetime,
+            entry_time__lte=end_datetime
+        )
         total_entries = today_entries.count()
         total_exits = today_entries.filter(exit_time__isnull=False).count()
         total_inside = total_entries - total_exits
@@ -111,13 +121,22 @@ class HomeConsumer(AsyncWebsocketConsumer):
         self, date_str, number_plate_filter="", status_filter="all"
     ):
         try:
-            date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            # Convert date string to timezone-aware datetime for proper filtering
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+            # Create timezone-aware datetime range for the entire day
+            start_datetime = timezone.make_aware(datetime.combine(date_obj, datetime.min.time()))
+            end_datetime = timezone.make_aware(datetime.combine(date_obj, datetime.max.time()))
         except ValueError:
-            date = timezone.now().date()
+            # Fallback to today if date parsing fails
+            today = timezone.now().date()
+            start_datetime = timezone.make_aware(datetime.combine(today, datetime.min.time()))
+            end_datetime = timezone.make_aware(datetime.combine(today, datetime.max.time()))
 
-        entries = VehicleEntry.objects.filter(entry_time__date=date).order_by(
-            "-entry_time"
-        )
+        # Use timezone-aware datetime range instead of naive date
+        entries = VehicleEntry.objects.filter(
+            entry_time__gte=start_datetime,
+            entry_time__lte=end_datetime
+        ).order_by("-entry_time")
 
         if number_plate_filter:
             entries = entries.filter(number_plate__icontains=number_plate_filter)
@@ -134,13 +153,17 @@ class HomeConsumer(AsyncWebsocketConsumer):
 
         entries_data = []
         for entry in entries:
+            # Ensure timezone-aware formatting
+            entry_time = timezone.localtime(entry.entry_time) if timezone.is_naive(entry.entry_time) else entry.entry_time
+            exit_time = timezone.localtime(entry.exit_time) if entry.exit_time and timezone.is_naive(entry.exit_time) else entry.exit_time
+            
             entries_data.append(
                 {
                     "id": entry.id,
                     "number_plate": entry.number_plate,
-                    "entry_time": entry.entry_time.strftime("%H:%M"),
-                    "exit_time": entry.exit_time.strftime("%H:%M")
-                    if entry.exit_time
+                    "entry_time": entry_time.strftime("%H:%M"),
+                    "exit_time": exit_time.strftime("%H:%M")
+                    if exit_time
                     else None,
                     "total_amount": entry.total_amount or 0,
                     "is_paid": entry.is_paid,
@@ -165,46 +188,6 @@ class HomeConsumer(AsyncWebsocketConsumer):
             return {"success": False, "error": "Entry not found"}
 
     @database_sync_to_async
-    def add_car(self, data):
-        try:
-            car, created = Cars.objects.get_or_create(
-                number_plate=data.get("number_plate"),
-                defaults={
-                    "is_free": data.get("is_free", False),
-                    "is_special_taxi": data.get("is_special_taxi", False),
-                    "is_blocked": data.get("is_blocked", False),
-                },
-            )
-
-            if not created:
-                car.is_free = data.get("is_free", False)
-                car.is_special_taxi = data.get("is_special_taxi", False)
-                car.is_blocked = data.get("is_blocked", False)
-                car.save()
-
-            return {
-                "success": True,
-                "car": {
-                    "number_plate": car.number_plate,
-                    "is_free": car.is_free,
-                    "is_special_taxi": car.is_special_taxi,
-                    "is_blocked": car.is_blocked,
-                },
-            }
-        except Exception as e:
-            return {"success": False, "error": str(e)}
-
-    @database_sync_to_async
-    def block_car(self, number_plate):
-        try:
-            car = Cars.objects.get(number_plate=number_plate)
-            car.is_blocked = True
-            car.save()
-            return {"success": True, "number_plate": number_plate}
-        except Cars.DoesNotExist:
-            return {"success": False, "error": "Car not found"}
-
-    @database_sync_to_async
     def delete_entry(self, entry_id):
         try:
             entry = VehicleEntry.objects.get(id=entry_id)
@@ -216,25 +199,37 @@ class HomeConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def get_latest_unpaid_entry(self, date_str):
         try:
-            date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            # Convert date string to timezone-aware datetime for proper filtering
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+            # Create timezone-aware datetime range for the entire day
+            start_datetime = timezone.make_aware(datetime.combine(date_obj, datetime.min.time()))
+            end_datetime = timezone.make_aware(datetime.combine(date_obj, datetime.max.time()))
         except ValueError:
-            date = timezone.now().date()
+            # Fallback to today if date parsing fails
+            today = timezone.now().date()
+            start_datetime = timezone.make_aware(datetime.combine(today, datetime.min.time()))
+            end_datetime = timezone.make_aware(datetime.combine(today, datetime.max.time()))
         
-        # Get the latest unpaid entry that has exited
+        # Get the latest unpaid entry that has exited using timezone-aware datetime range
         latest_entry = VehicleEntry.objects.filter(
-            entry_time__date=date,
+            entry_time__gte=start_datetime,
+            entry_time__lte=end_datetime,
             is_paid=False,
             exit_time__isnull=False
         ).order_by('-exit_time').first()
         
         if latest_entry:
+            # Ensure timezone-aware formatting
+            entry_time = timezone.localtime(latest_entry.entry_time) if timezone.is_naive(latest_entry.entry_time) else latest_entry.entry_time
+            exit_time = timezone.localtime(latest_entry.exit_time) if timezone.is_naive(latest_entry.exit_time) else latest_entry.exit_time
+            
             return {
                 'id': latest_entry.id,
                 'number_plate': latest_entry.number_plate,
-                'entry_time': latest_entry.entry_time.strftime('%H:%M'),
-                'exit_time': latest_entry.exit_time.strftime('%H:%M'),
+                'entry_time': entry_time.strftime('%H:%M'),
+                'exit_time': exit_time.strftime('%H:%M'),
                 'total_amount': latest_entry.total_amount or 0,
-                'duration_hours': round((latest_entry.exit_time - latest_entry.entry_time).total_seconds() / 3600, 2)
+                'duration_hours': round((exit_time - entry_time).total_seconds() / 3600, 2)
             }
         else:
             return None
@@ -242,26 +237,40 @@ class HomeConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def get_unpaid_entries(self, date_str):
         try:
-            date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            # Convert date string to timezone-aware datetime for proper filtering
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+            # Create timezone-aware datetime range for the entire day
+            start_datetime = timezone.make_aware(datetime.combine(date_obj, datetime.min.time()))
+            end_datetime = timezone.make_aware(datetime.combine(date_obj, datetime.max.time()))
         except ValueError:
-            date = timezone.now().date()
+            # Fallback to today if date parsing fails
+            today = timezone.now().date()
+            start_datetime = timezone.make_aware(datetime.combine(today, datetime.min.time()))
+            end_datetime = timezone.make_aware(datetime.combine(today, datetime.max.time()))
 
-        # Get unpaid entries that have exited
+        # Get unpaid entries that have exited using timezone-aware datetime range
         unpaid_entries = VehicleEntry.objects.filter(
-            entry_time__date=date, is_paid=False, exit_time__isnull=False
+            entry_time__gte=start_datetime,
+            entry_time__lte=end_datetime,
+            is_paid=False, 
+            exit_time__isnull=False
         ).order_by("-exit_time")
 
         entries_data = []
         for entry in unpaid_entries:
+            # Ensure timezone-aware formatting
+            entry_time = timezone.localtime(entry.entry_time) if timezone.is_naive(entry.entry_time) else entry.entry_time
+            exit_time = timezone.localtime(entry.exit_time) if timezone.is_naive(entry.exit_time) else entry.exit_time
+            
             entries_data.append(
                 {
                     "id": entry.id,
                     "number_plate": entry.number_plate,
-                    "entry_time": entry.entry_time.strftime("%H:%M"),
-                    "exit_time": entry.exit_time.strftime("%H:%M"),
+                    "entry_time": entry_time.strftime("%H:%M"),
+                    "exit_time": exit_time.strftime("%H:%M"),
                     "total_amount": entry.total_amount or 0,
                     "duration_hours": round(
-                        (entry.exit_time - entry.entry_time).total_seconds() / 3600, 2
+                        (exit_time - entry_time).total_seconds() / 3600, 2
                     ),
                 }
             )
@@ -276,19 +285,23 @@ class HomeConsumer(AsyncWebsocketConsumer):
             if not entry.is_paid:
                 return {"success": False, "error": "Entry is not paid"}
 
+            # Ensure timezone-aware formatting
+            entry_time = timezone.localtime(entry.entry_time) if timezone.is_naive(entry.entry_time) else entry.entry_time
+            exit_time = timezone.localtime(entry.exit_time) if entry.exit_time and timezone.is_naive(entry.exit_time) else entry.exit_time
+
             receipt_data = {
                 "id": entry.id,
                 "number_plate": entry.number_plate,
-                "entry_time": entry.entry_time.strftime("%H:%M"),
-                "exit_time": entry.exit_time.strftime("%H:%M")
-                if entry.exit_time
+                "entry_time": entry_time.strftime("%H:%M"),
+                "exit_time": exit_time.strftime("%H:%M")
+                if exit_time
                 else None,
                 "total_amount": entry.total_amount or 0,
                 "is_paid": entry.is_paid,
                 "duration_hours": round(
-                    (entry.exit_time - entry.entry_time).total_seconds() / 3600, 2
+                    (exit_time - entry_time).total_seconds() / 3600, 2
                 )
-                if entry.exit_time
+                if exit_time
                 else 0,
             }
 

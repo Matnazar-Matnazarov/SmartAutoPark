@@ -4,6 +4,7 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from .models import VehicleEntry, Cars
 from django.utils import timezone
+from datetime import datetime
 
 
 @receiver(post_save, sender=VehicleEntry)
@@ -11,9 +12,15 @@ def vehicle_entry_updated(sender, instance, created, **kwargs):
     """Send WebSocket update when VehicleEntry is created or updated"""
     channel_layer = get_channel_layer()
 
-    # Get statistics for today
+    # Get statistics for today using timezone-aware datetime range
     today = timezone.now().date()
-    today_entries = VehicleEntry.objects.filter(entry_time__date=today)
+    start_datetime = timezone.make_aware(datetime.combine(today, datetime.min.time()))
+    end_datetime = timezone.make_aware(datetime.combine(today, datetime.max.time()))
+    
+    today_entries = VehicleEntry.objects.filter(
+        entry_time__gte=start_datetime,
+        entry_time__lte=end_datetime
+    )
     total_entries = today_entries.count()
     total_exits = today_entries.filter(exit_time__isnull=False).count()
     total_inside = total_entries - total_exits
@@ -29,10 +36,11 @@ def vehicle_entry_updated(sender, instance, created, **kwargs):
         "unpaid_entries": unpaid_entries,
     }
 
-    # Get latest vehicle entries
-    entries = VehicleEntry.objects.filter(entry_time__date=today).order_by(
-        "-entry_time"
-    )[:10]
+    # Get latest vehicle entries using timezone-aware datetime range
+    entries = VehicleEntry.objects.filter(
+        entry_time__gte=start_datetime,
+        entry_time__lte=end_datetime
+    ).order_by("-entry_time")[:10]
     entries_data = []
 
     for entry in entries:
@@ -51,7 +59,7 @@ def vehicle_entry_updated(sender, instance, created, **kwargs):
             }
         )
 
-    # Send updates to all connected clients
+    # Broadcast update to all connected clients
     async_to_sync(channel_layer.group_send)(
         "home_updates",
         {
