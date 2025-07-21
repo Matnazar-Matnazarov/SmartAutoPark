@@ -270,7 +270,10 @@
           <p class="text-gray-600 text-sm">Operator paneli</p>
         </div>
       </div>
-      <div class="mt-4 md:mt-0 flex gap-3">
+      <div class="mt-4 md:mt-0 flex gap-3 items-center">
+        <div id="connection-status" class="px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+          Ulanish...
+        </div>
         <a href="/cars/" class="primary-btn px-6 py-3 text-sm">
           <i class="fas fa-cog mr-2"></i>Avtomobillar
         </a>
@@ -296,10 +299,12 @@
           <div class="flex flex-col items-center">
             <span class="text-sm text-gray-600 mb-1">Kirish vaqti</span>
             <span class="text-lg font-mono font-semibold text-gray-800" id="entry-time">--:--</span>
+            <div class="mt-2" id="entry-image-container"></div>
           </div>
           <div class="flex flex-col items-center">
             <span class="text-sm text-gray-600 mb-1">Chiqish vaqti</span>
             <span class="text-lg font-mono font-semibold text-gray-800" id="exit-time">--:--</span>
+            <div class="mt-2" id="exit-image-container"></div>
           </div>
         </div>
         
@@ -413,6 +418,9 @@
                 Narx
               </th>
               <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Davomiyligi
+              </th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Holat
               </th>
               <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -502,37 +510,160 @@
     </div>
   </div>
 
+      <!-- Loading Modal -->
+    <div id="loadingModal" class="modal">
+      <div class="modal-content max-w-md">
+        <div class="text-center">
+          <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h3 class="text-lg font-semibold text-gray-800 mb-2" id="loadingTitle">Yuklanmoqda...</h3>
+          <p class="text-gray-600 text-sm" id="loadingMessage">Iltimos kuting</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Image Modal -->
+    <div id="imageModal" class="modal">
+      <div class="modal-content max-w-4xl">
+        <div class="flex justify-between items-center mb-6">
+          <div class="flex items-center space-x-3">
+            <div class="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
+              <i class="fas fa-image text-white"></i>
+            </div>
+            <h2 class="text-xl font-bold text-gray-800" id="imageModalTitle">Rasm</h2>
+          </div>
+          <button onclick="closeImageModal()" class="text-gray-400 hover:text-gray-600">
+            <i class="fas fa-times text-xl"></i>
+          </button>
+        </div>
+        <div class="text-center">
+          <img id="modalImage" src="" alt="Rasm" class="max-w-full max-h-96 mx-auto rounded-lg shadow-lg">
+        </div>
+      </div>
+    </div>
+
   <script>
+    // Initialize jsPDF globally
+    window.jsPDF = window.jspdf.jsPDF;
+    
     let socket;
     let currentEntry = null;
     let currentPaymentEntry = null;
+    let reconnectAttempts = 0;
+    let maxReconnectAttempts = 10;
+    let reconnectInterval = null;
+    let isConnecting = false;
+
+    // Format duration from hours to readable format
+    function formatDuration(hours) {
+      if (hours < 1) {
+        const minutes = Math.round(hours * 60);
+        return `${minutes} daqiqa`;
+      } else if (hours < 24) {
+        const wholeHours = Math.floor(hours);
+        const remainingMinutes = Math.round((hours - wholeHours) * 60);
+        if (remainingMinutes === 0) {
+          return `${wholeHours} soat`;
+        } else {
+          return `${wholeHours} soat ${remainingMinutes} daqiqa`;
+        }
+      } else {
+        const days = Math.floor(hours / 24);
+        const remainingHours = hours % 24;
+        if (remainingHours === 0) {
+          return `${days} kun`;
+        } else {
+          return `${days} kun ${Math.round(remainingHours)} soat`;
+        }
+      }
+    }
+
+    // Show connection status
+    function showConnectionStatus(status, message) {
+      const statusElement = document.getElementById('connection-status');
+      if (statusElement) {
+        statusElement.className = `px-3 py-1 rounded-full text-xs font-medium ${status === 'connected' ? 'bg-green-100 text-green-800' : status === 'connecting' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`;
+        statusElement.textContent = message;
+      }
+    }
 
     // Initialize WebSocket connection
     function initWebSocket() {
+      if (isConnecting) return;
+      
+      isConnecting = true;
+      showConnectionStatus('connecting', 'Serverga ulanmoqda...');
+      showLoading('Serverga ulanmoqda...', 'Real-time aloqa o\'rnatilmoqda');
+      
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/ws/home/`;
       
-      socket = new WebSocket(wsUrl);
+      try {
+        socket = new WebSocket(wsUrl);
+        
+        socket.onopen = function(e) {
+          console.log('WebSocket connected');
+          isConnecting = false;
+          reconnectAttempts = 0;
+          showConnectionStatus('connected', 'Ulangan');
+          hideLoading();
+          
+          // Clear any existing reconnect interval
+          if (reconnectInterval) {
+            clearInterval(reconnectInterval);
+            reconnectInterval = null;
+          }
+          
+          loadInitialData();
+        };
+        
+        socket.onmessage = function(e) {
+          const data = JSON.parse(e.data);
+          handleWebSocketMessage(data);
+        };
+        
+        socket.onclose = function(e) {
+          console.log('WebSocket disconnected');
+          isConnecting = false;
+          showConnectionStatus('disconnected', 'Uzildi');
+          
+          // Start reconnection process
+          startReconnection();
+        };
+        
+        socket.onerror = function(e) {
+          console.error('WebSocket error:', e);
+          isConnecting = false;
+          showConnectionStatus('disconnected', 'Xatolik');
+        };
+        
+      } catch (error) {
+        console.error('WebSocket connection error:', error);
+        isConnecting = false;
+        showConnectionStatus('disconnected', 'Xatolik');
+        startReconnection();
+      }
+    }
+
+    // Start reconnection process
+    function startReconnection() {
+      if (reconnectInterval) return;
       
-      socket.onopen = function(e) {
-        console.log('WebSocket connected');
-        loadInitialData();
-      };
+      reconnectAttempts++;
       
-      socket.onmessage = function(e) {
-        const data = JSON.parse(e.data);
-        handleWebSocketMessage(data);
-      };
+      if (reconnectAttempts > maxReconnectAttempts) {
+        showConnectionStatus('disconnected', 'Ulanish amalga oshmadi');
+        showNotification('Serverga ulanish amalga oshmadi. Sahifani yangilang.', 'error');
+        return;
+      }
       
-      socket.onclose = function(e) {
-        console.log('WebSocket disconnected');
-        // Reconnect after 5 seconds
-        setTimeout(initWebSocket, 5000);
-      };
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 30000); // Exponential backoff, max 30s
       
-      socket.onerror = function(e) {
-        console.error('WebSocket error:', e);
-      };
+      showConnectionStatus('connecting', `Qayta ulanish... (${reconnectAttempts}/${maxReconnectAttempts})`);
+      
+      reconnectInterval = setTimeout(() => {
+        reconnectInterval = null;
+        initWebSocket();
+      }, delay);
     }
 
     // Handle WebSocket messages
@@ -580,6 +711,9 @@
       // Update vehicle entries
       updateVehicleEntries(data.vehicle_entries);
       
+      // Update latest unpaid entry for real-time updates
+      loadLatestUnpaidEntry();
+      
       // Show notification based on action
       let message = '';
       switch(data.action) {
@@ -591,6 +725,30 @@
           break;
         case 'deleted':
           message = `Avtomobil ma'lumotlari o'chirildi: ${data.number_plate}`;
+          break;
+        case 'payment_completed':
+          message = `To'lov muvaffaqiyatli amalga oshirildi`;
+          break;
+      }
+      
+      if (message) {
+        showNotification(message, 'info');
+      }
+    }
+
+    // Handle car updates from signals
+    function handleCarUpdate(data) {
+      // Show notification based on action
+      let message = '';
+      switch(data.action) {
+        case 'created':
+          message = `Yangi avtomobil qo'shildi: ${data.car.number_plate}`;
+          break;
+        case 'updated':
+          message = `Avtomobil ma'lumotlari yangilandi: ${data.car.number_plate}`;
+          break;
+        case 'deleted':
+          message = `Avtomobil o'chirildi: ${data.car.number_plate}`;
           break;
       }
       
@@ -624,13 +782,23 @@
       const today = new Date().toISOString().split('T')[0];
       document.getElementById('date-filter').value = today;
       
-      socket.send(JSON.stringify({
-        type: 'get_statistics',
-        date: today
-      }));
-      
-      loadVehicleEntries();
-      loadLatestUnpaidEntry();
+      // Load data for today automatically
+      loadDataForDate(today);
+    }
+
+    // Load data for specific date
+    function loadDataForDate(dateStr) {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+          type: 'get_statistics',
+          date: dateStr
+        }));
+        
+        loadVehicleEntries();
+        loadLatestUnpaidEntry();
+      } else {
+        showNotification('Serverga ulanish yo\'q. Qayta ulanish kutilmoqda...', 'warning');
+      }
     }
 
     // Load latest unpaid entry for the left card
@@ -644,44 +812,75 @@
 
     // Update latest unpaid entry display
     function updateLatestUnpaidEntry(entry) {
+      const currentPlate = document.getElementById('current-plate');
+      const entryTime = document.getElementById('entry-time');
+      const exitTime = document.getElementById('exit-time');
+      const currentAmount = document.getElementById('current-amount');
+      const payButton = document.getElementById('pay-button');
+      const entryImageContainer = document.getElementById('entry-image-container');
+      const exitImageContainer = document.getElementById('exit-image-container');
+      
       if (entry) {
-        document.getElementById('current-plate').textContent = entry.number_plate;
-        document.getElementById('entry-time').textContent = entry.entry_time;
-        document.getElementById('exit-time').textContent = entry.exit_time;
-        document.getElementById('current-amount').textContent = entry.total_amount + ' so\'m';
+        currentPlate.textContent = entry.number_plate;
+        entryTime.textContent = entry.entry_time;
+        exitTime.textContent = entry.exit_time;
+        currentAmount.textContent = entry.total_amount + ' so\'m';
+        
+        // Show entry image if available
+        if (entry.entry_image) {
+          entryImageContainer.innerHTML = `
+            <img src="${entry.entry_image}" alt="Kirish rasmi" 
+                 class="w-16 h-12 object-cover rounded border cursor-pointer hover:scale-110 transition-transform"
+                 onclick="showImageModal('${entry.entry_image}', 'Kirish rasmi')">
+          `;
+        } else {
+          entryImageContainer.innerHTML = '';
+        }
+        
+        // Show exit image if available
+        if (entry.exit_image) {
+          exitImageContainer.innerHTML = `
+            <img src="${entry.exit_image}" alt="Chiqish rasmi" 
+                 class="w-16 h-12 object-cover rounded border cursor-pointer hover:scale-110 transition-transform"
+                 onclick="showImageModal('${entry.exit_image}', 'Chiqish rasmi')">
+          `;
+        } else {
+          exitImageContainer.innerHTML = '';
+        }
         
         // Enable payment button
-        document.getElementById('pay-button').disabled = false;
-        document.getElementById('pay-button').onclick = () => openPaymentModal(entry.id, entry.number_plate, entry.total_amount, entry.entry_time, entry.exit_time);
-        
-        // Disable receipt button (no receipt for unpaid entries)
-        document.getElementById('print-receipt').disabled = true;
-        document.getElementById('print-receipt').onclick = null;
+        payButton.disabled = false;
+        payButton.onclick = () => openPaymentModal(entry.id, entry.number_plate, entry.total_amount, entry.entry_time, entry.exit_time);
       } else {
         // No unpaid entries
-        document.getElementById('current-plate').textContent = '--';
-        document.getElementById('entry-time').textContent = '--:--';
-        document.getElementById('exit-time').textContent = '--:--';
-        document.getElementById('current-amount').textContent = '0 so\'m';
+        currentPlate.textContent = '--';
+        entryTime.textContent = '--:--';
+        exitTime.textContent = '--:--';
+        currentAmount.textContent = '0 so\'m';
         
-        // Disable both buttons
-        document.getElementById('pay-button').disabled = true;
-        document.getElementById('print-receipt').disabled = true;
+        // Clear images
+        entryImageContainer.innerHTML = '';
+        exitImageContainer.innerHTML = '';
+        
+        // Disable payment button
+        payButton.disabled = true;
       }
     }
 
     // Load vehicle entries with filters
     function loadVehicleEntries() {
-      const selectedDate = document.getElementById('date-filter').value;
-      const numberFilter = document.getElementById('number-filter').value;
-      const statusFilter = document.getElementById('status-filter').value;
-      
-      socket.send(JSON.stringify({
-        type: 'get_vehicle_entries',
-        date: selectedDate,
-        number_plate: numberFilter,
-        status: statusFilter
-      }));
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        const selectedDate = document.getElementById('date-filter').value;
+        const numberFilter = document.getElementById('number-filter').value;
+        const statusFilter = document.getElementById('status-filter').value;
+        
+        socket.send(JSON.stringify({
+          type: 'get_vehicle_entries',
+          date: selectedDate,
+          number_plate: numberFilter,
+          status: statusFilter
+        }));
+      }
     }
 
     // Load unpaid entries for receipt printing
@@ -711,7 +910,7 @@
       if (entries.length === 0) {
         entriesList.innerHTML = `
           <tr>
-            <td colspan="5" class="px-6 py-8 text-center">
+            <td colspan="6" class="px-6 py-8 text-center">
               <div class="flex flex-col items-center">
                 <div class="p-4 bg-gray-100 rounded-full w-16 h-16 flex items-center justify-center mb-4">
                   <i class="fas fa-search text-gray-400 text-2xl"></i>
@@ -768,6 +967,27 @@
           </button>
         `;
         
+                // Calculate duration if exit time exists
+        let durationText = '';
+        if (entry.exit_time && entry.entry_time) {
+          try {
+            // Parse times and calculate duration
+            const entryTime = new Date(`2025-01-01 ${entry.entry_time}`);
+            const exitTime = new Date(`2025-01-01 ${entry.exit_time}`);
+            
+            // Handle case where exit time is before entry time (next day)
+            let durationHours = (exitTime - entryTime) / (1000 * 60 * 60);
+            if (durationHours < 0) {
+              durationHours += 24; // Add 24 hours if negative
+            }
+            
+            durationText = formatDuration(durationHours);
+          } catch (error) {
+            console.error('Error calculating duration:', error);
+            durationText = 'Xato';
+          }
+        }
+        
         row.innerHTML = `
           <td class="px-6 py-4 whitespace-nowrap">
             <div class="flex items-center">
@@ -780,13 +1000,23 @@
           </td>
           <td class="px-6 py-4 whitespace-nowrap">
             <div class="text-sm text-gray-900">
-              <div><i class="fas fa-sign-in-alt text-green-500 mr-2"></i>${entry.entry_time}</div>
-              ${entry.exit_time ? `<div><i class="fas fa-sign-out-alt text-red-500 mr-2"></i>${entry.exit_time}</div>` : ''}
+              <div class="flex items-center">
+                <i class="fas fa-sign-in-alt text-green-500 mr-2"></i>
+                <span>${entry.entry_time}</span>
+              </div>
+              ${entry.exit_time ? `
+                <div class="flex items-center mt-2">
+                  <i class="fas fa-sign-out-alt text-red-500 mr-2"></i>
+                  <span>${entry.exit_time}</span>
+                </div>
+              ` : ''}
             </div>
           </td>
           <td class="px-6 py-4 whitespace-nowrap">
             <div class="text-sm font-medium text-gray-900">${entry.total_amount} so'm</div>
-            ${entry.exit_time ? `<div class="text-xs text-gray-500">${Math.round((new Date(entry.exit_time) - new Date(entry.entry_time)) / (1000 * 60 * 60) * 100) / 100} soat</div>` : ''}
+          </td>
+          <td class="px-6 py-4 whitespace-nowrap">
+            <div class="text-sm text-gray-600">${durationText}</div>
           </td>
           <td class="px-6 py-4 whitespace-nowrap">
             <span class="status-badge ${statusClass}">${statusBadge}</span>
@@ -856,6 +1086,12 @@
     function processPayment() {
       if (!currentPaymentEntry) return;
       
+      // Show loading state
+      const payButton = document.querySelector('#paymentModal .payment-btn');
+      const originalText = payButton.innerHTML;
+      payButton.innerHTML = '<span class="loading"></span> To\'lov amalga oshirilmoqda...';
+      payButton.disabled = true;
+      
       socket.send(JSON.stringify({
         type: 'mark_as_paid',
         entry_id: currentPaymentEntry.entryId
@@ -863,11 +1099,11 @@
       
       closePaymentModal();
       
-      // Refresh data after payment
+      // Reset button after 2 seconds
       setTimeout(() => {
-        loadVehicleEntries();
-        loadLatestUnpaidEntry();
-      }, 500);
+        payButton.innerHTML = originalText;
+        payButton.disabled = false;
+      }, 2000);
     }
 
     // Show receipt
@@ -899,23 +1135,23 @@
         <div class="space-y-2">
           <div class="receipt-item">
             <span>Avtomobil raqami:</span>
-            <span>${receipt.number_plate}</span>
+            <span id="receipt-number-plate">${receipt.number_plate}</span>
           </div>
           <div class="receipt-item">
             <span>Kirish vaqti:</span>
-            <span>${receipt.entry_time}</span>
+            <span id="receipt-entry-time">${receipt.entry_time}</span>
           </div>
           <div class="receipt-item">
             <span>Chiqish vaqti:</span>
-            <span>${receipt.exit_time}</span>
+            <span id="receipt-exit-time">${receipt.exit_time}</span>
           </div>
           <div class="receipt-item">
             <span>Davomiyligi:</span>
-            <span>${receipt.duration_hours} soat</span>
+            <span id="receipt-duration">${formatDuration(receipt.duration_hours)}</span>
           </div>
           <div class="receipt-item">
             <span>To'lov miqdori:</span>
-            <span>${receipt.total_amount} so'm</span>
+            <span id="receipt-amount">${receipt.total_amount} so'm</span>
           </div>
           <div class="receipt-item">
             <span>To'lov holati:</span>
@@ -942,61 +1178,162 @@
       document.getElementById('receiptModal').style.display = 'none';
     }
 
+    // Show image modal
+    function showImageModal(imageSrc, title) {
+      document.getElementById('modalImage').src = imageSrc;
+      document.getElementById('imageModalTitle').textContent = title;
+      document.getElementById('imageModal').style.display = 'block';
+    }
+
+    // Show loading modal
+    function showLoading(title = 'Yuklanmoqda...', message = 'Iltimos kuting') {
+      document.getElementById('loadingTitle').textContent = title;
+      document.getElementById('loadingMessage').textContent = message;
+      document.getElementById('loadingModal').style.display = 'block';
+    }
+
+    // Hide loading modal
+    function hideLoading() {
+      document.getElementById('loadingModal').style.display = 'none';
+    }
+
+    // Close image modal
+    function closeImageModal() {
+      document.getElementById('imageModal').style.display = 'none';
+    }
+
     // Download receipt as PDF
     function downloadReceiptPDF() {
       const receiptElement = document.getElementById('receipt-content');
       
-      // Create a temporary container for better PDF generation
-      const tempContainer = document.createElement('div');
-      tempContainer.style.position = 'absolute';
-      tempContainer.style.left = '-9999px';
-      tempContainer.style.top = '0';
-      tempContainer.style.width = '400px';
-      tempContainer.style.background = 'white';
-      tempContainer.style.padding = '20px';
-      tempContainer.style.border = '2px solid #333';
-      tempContainer.style.fontFamily = 'Courier New, monospace';
-      tempContainer.innerHTML = receiptElement.innerHTML;
-      document.body.appendChild(tempContainer);
+      if (!receiptElement) {
+        showNotification('Chek ma\'lumotlari topilmadi', 'error');
+        return;
+      }
       
-      html2canvas(tempContainer, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        width: 400,
-        height: tempContainer.scrollHeight
-      }).then(canvas => {
-        // Remove temporary container
-        document.body.removeChild(tempContainer);
-        
-        const imgData = canvas.toDataURL('image/png');
+      // Show loading
+      showLoading('PDF yaratilmoqda...', 'Chek tayyorlanmoqda');
+      
+      try {
+        // Create a professional PDF
         const pdf = new jsPDF('p', 'mm', 'a4');
-        const imgWidth = 190; // A4 width - margins
-        const pageHeight = 277; // A4 height - margins
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        let heightLeft = imgHeight;
         
-        let position = 0;
+        // Get receipt data
+        const numberPlate = document.getElementById('receipt-number-plate').textContent;
+        const entryTime = document.getElementById('receipt-entry-time').textContent;
+        const exitTime = document.getElementById('receipt-exit-time').textContent;
+        const amount = document.getElementById('receipt-amount').textContent;
+        const duration = document.getElementById('receipt-duration').textContent;
         
-        pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+        // Add header with logo and company info
+        pdf.setFillColor(102, 126, 234);
+        pdf.rect(0, 0, 210, 30, 'F');
         
-        while (heightLeft >= 0) {
-          position = heightLeft - imgHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, 'PNG', 10, position + 10, imgWidth, imgHeight);
-          heightLeft -= pageHeight;
-        }
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(24);
+        pdf.text('SMART AUTOPARK', 105, 18, { align: 'center' });
+        
+        pdf.setFontSize(10);
+        pdf.text('Avtomobil to\'xtash maydoni', 105, 26, { align: 'center' });
+        
+        // Reset text color
+        pdf.setTextColor(0, 0, 0);
+        
+        // Add receipt title
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(16);
+        pdf.text('TO\'LOV CHEKI', 105, 45, { align: 'center' });
+        
+        // Add receipt number and date
+        const now = new Date();
+        const receiptNumber = `CHK-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}-${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+        
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+        pdf.text(`Chek raqami: ${receiptNumber}`, 20, 60);
+        pdf.text(`Sana: ${now.toLocaleDateString('uz-UZ')}`, 20, 67);
+        pdf.text(`Vaqt: ${now.toLocaleTimeString('uz-UZ')}`, 20, 74);
+        
+        // Add separator line
+        pdf.setDrawColor(102, 126, 234);
+        pdf.setLineWidth(0.5);
+        pdf.line(20, 80, 190, 80);
+        
+        // Add receipt details with better formatting
+        let yPosition = 95;
+        const lineHeight = 12;
+        
+        // Create a table-like layout
+        const addReceiptRow = (label, value, isBold = false) => {
+          pdf.setFont('helvetica', isBold ? 'bold' : 'normal');
+          pdf.setFontSize(11);
+          
+          // Add background for alternating rows
+          if (yPosition % 24 === 11) {
+            pdf.setFillColor(248, 250, 252);
+            pdf.rect(20, yPosition - 8, 170, 16, 'F');
+          }
+          
+          pdf.text(label, 25, yPosition);
+          pdf.text(value, 150, yPosition, { align: 'right' });
+          yPosition += lineHeight;
+        };
+        
+        addReceiptRow('Avtomobil raqami:', numberPlate);
+        addReceiptRow('Kirish vaqti:', entryTime);
+        addReceiptRow('Chiqish vaqti:', exitTime);
+        addReceiptRow('Davomiyligi:', duration);
+        
+        // Add separator before total
+        pdf.setDrawColor(102, 126, 234);
+        pdf.setLineWidth(1);
+        pdf.line(20, yPosition + 5, 190, yPosition + 5);
+        yPosition += 15;
+        
+        // Add total amount with emphasis
+        pdf.setFillColor(102, 126, 234);
+        pdf.rect(20, yPosition - 8, 170, 20, 'F');
+        
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(14);
+        pdf.text('TO\'LOV MIQDORI:', 25, yPosition);
+        pdf.text(amount, 150, yPosition, { align: 'right' });
+        
+        // Reset text color
+        pdf.setTextColor(0, 0, 0);
+        yPosition += 35;
+        
+        // Add footer
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+        pdf.setTextColor(102, 126, 234);
+        pdf.text('Rahmat! Yana kelib turing', 105, yPosition, { align: 'center' });
+        
+        yPosition += 8;
+        pdf.setFontSize(8);
+        pdf.text('Smart AutoPark - Professional parking solution', 105, yPosition, { align: 'center' });
+        
+        // Add QR code placeholder (you can add actual QR code generation here)
+        yPosition += 15;
+        pdf.setDrawColor(200, 200, 200);
+        pdf.rect(85, yPosition, 40, 40, 'S');
+        pdf.setFontSize(6);
+        pdf.setTextColor(150, 150, 150);
+        pdf.text('QR Code', 105, yPosition + 20, { align: 'center' });
         
         // Generate filename with timestamp
-        const now = new Date();
         const timestamp = now.toISOString().slice(0, 19).replace(/:/g, '-');
-        pdf.save(`receipt_${timestamp}.pdf`);
-      }).catch(error => {
-        console.error('PDF generation error:', error);
-        showNotification('PDF yaratishda xatolik yuz berdi', 'error');
-      });
+                    pdf.save(`chek_${numberPlate}_${timestamp}.pdf`);
+            
+            hideLoading();
+            showNotification('PDF muvaffaqiyatli yaratildi', 'success');
+              } catch (error) {
+          console.error('PDF creation error:', error);
+          hideLoading();
+          showNotification('PDF yaratishda xatolik yuz berdi', 'error');
+        }
     }
 
     // Print receipt
@@ -1043,9 +1380,21 @@
     // Handle payment update
     function handlePaymentUpdate(data) {
       if (data.success) {
-        // Reload data after payment
-        loadVehicleEntries();
-        loadLatestUnpaidEntry();
+        // Update statistics if provided
+        if (data.statistics) {
+          updateStatistics(data.statistics);
+        }
+        
+        // Update vehicle entries if provided
+        if (data.vehicle_entries) {
+          updateVehicleEntries(data.vehicle_entries);
+        }
+        
+        // Update latest unpaid entry if provided
+        if (data.latest_unpaid_entry !== undefined) {
+          updateLatestUnpaidEntry(data.latest_unpaid_entry);
+        }
+        
         showNotification('To\'lov muvaffaqiyatli amalga oshirildi', 'success');
       } else {
         showNotification('Xatolik yuz berdi: ' + data.error, 'error');
@@ -1239,17 +1588,7 @@
         loadVehicleEntries();
       });
       
-      // Block car form
-      document.getElementById('block-form').addEventListener('submit', function(e) {
-        e.preventDefault();
-        const numberPlate = document.getElementById('block-plate').value.trim();
-        if (numberPlate) {
-          socket.send(JSON.stringify({
-            type: 'block_car',
-            number_plate: numberPlate
-          }));
-        }
-      });
+      // Block car form - removed as it doesn't exist in HTML
       
 
       
@@ -1257,12 +1596,16 @@
       window.onclick = function(event) {
         const paymentModal = document.getElementById('paymentModal');
         const receiptModal = document.getElementById('receiptModal');
+        const imageModal = document.getElementById('imageModal');
         
         if (event.target === paymentModal) {
           closePaymentModal();
         }
         if (event.target === receiptModal) {
           closeReceiptModal();
+        }
+        if (event.target === imageModal) {
+          closeImageModal();
         }
       };
     });

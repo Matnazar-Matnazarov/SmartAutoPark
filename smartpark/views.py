@@ -123,12 +123,16 @@ def receive_exit(request):
             body_bytes = request.body
             body_str = body_bytes.decode("utf-8", errors="ignore")
             current_time = timezone.now()
-            
+
             # Create timezone-aware datetime range for today
             today = current_time.date()
-            start_datetime = timezone.make_aware(datetime.combine(today, datetime.min.time()))
-            end_datetime = timezone.make_aware(datetime.combine(today, datetime.max.time()))
-            
+            start_datetime = timezone.make_aware(
+                datetime.combine(today, datetime.min.time())
+            )
+            end_datetime = timezone.make_aware(
+                datetime.combine(today, datetime.max.time())
+            )
+
             # 1. XML'dan davlat raqamini ajratamiz (masalan <licensePlate> tagidan)
             number_plate_match = re.search(
                 r"<licensePlate>(.*?)</licensePlate>", body_str
@@ -139,7 +143,7 @@ def receive_exit(request):
                 else f"TEMP{current_time.strftime('%H%M%S')}"
             )
             car = Cars.objects.filter(number_plate=number_plate).first()
-            
+
             # 2. Faylni multipart dan ajratish
             # Bu oddiy variant: multipart so'rovdan rasmni olish
             boundary = (
@@ -165,13 +169,13 @@ def receive_exit(request):
 
                     # 4. Rasmdan ImageField fayl obyektini yasaymiz
                     image_file = ContentFile(image_data, name=filename)
-                    
+
                     # Use timezone-aware datetime range instead of naive date
                     latest_entry = (
                         VehicleEntry.objects.filter(
-                            number_plate=number_plate, 
+                            number_plate=number_plate,
                             entry_time__gte=start_datetime,
-                            entry_time__lte=end_datetime
+                            entry_time__lte=end_datetime,
                         )
                         .order_by("-entry_time")
                         .first()
@@ -189,8 +193,8 @@ def receive_exit(request):
                                 latest_entry.calculate_amount()
                                 if VehicleEntry.objects.filter(
                                     entry_time__gte=start_datetime,
-                                    entry_time__lte=end_datetime, 
-                                    number_plate=number_plate
+                                    entry_time__lte=end_datetime,
+                                    number_plate=number_plate,
                                 ).count()
                                 < 2
                                 else 0
@@ -205,6 +209,10 @@ def receive_exit(request):
                                     latest_entry.calculate_amount()
                                 )
                                 latest_entry.save()
+
+                                print(
+                                    f"💳 Payment calculated: {latest_entry.number_plate} = {latest_entry.total_amount} so'm"
+                                )
 
                         print("✅ Vehicle exit updated successfully")
                         return JsonResponse(
@@ -237,18 +245,23 @@ def get_statistics(request):
         # Convert date string to timezone-aware datetime for proper filtering
         date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
         # Create timezone-aware datetime range for the entire day
-        start_datetime = timezone.make_aware(datetime.combine(date_obj, datetime.min.time()))
-        end_datetime = timezone.make_aware(datetime.combine(date_obj, datetime.max.time()))
+        start_datetime = timezone.make_aware(
+            datetime.combine(date_obj, datetime.min.time())
+        )
+        end_datetime = timezone.make_aware(
+            datetime.combine(date_obj, datetime.max.time())
+        )
     except ValueError:
         # Fallback to today if date parsing fails
         today = timezone.now().date()
-        start_datetime = timezone.make_aware(datetime.combine(today, datetime.min.time()))
+        start_datetime = timezone.make_aware(
+            datetime.combine(today, datetime.min.time())
+        )
         end_datetime = timezone.make_aware(datetime.combine(today, datetime.max.time()))
 
     # Use timezone-aware datetime range instead of naive date
     today_entries = VehicleEntry.objects.filter(
-        entry_time__gte=start_datetime,
-        entry_time__lte=end_datetime
+        entry_time__gte=start_datetime, entry_time__lte=end_datetime
     )
     total_entries = today_entries.count()
     total_exits = today_entries.filter(exit_time__isnull=False).count()
@@ -282,18 +295,25 @@ def get_vehicle_entries(request):
             # Convert date string to timezone-aware datetime for proper filtering
             date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
             # Create timezone-aware datetime range for the entire day
-            start_datetime = timezone.make_aware(datetime.combine(date_obj, datetime.min.time()))
-            end_datetime = timezone.make_aware(datetime.combine(date_obj, datetime.max.time()))
+            start_datetime = timezone.make_aware(
+                datetime.combine(date_obj, datetime.min.time())
+            )
+            end_datetime = timezone.make_aware(
+                datetime.combine(date_obj, datetime.max.time())
+            )
         except ValueError:
             # Fallback to today if date parsing fails
             today = timezone.now().date()
-            start_datetime = timezone.make_aware(datetime.combine(today, datetime.min.time()))
-            end_datetime = timezone.make_aware(datetime.combine(today, datetime.max.time()))
+            start_datetime = timezone.make_aware(
+                datetime.combine(today, datetime.min.time())
+            )
+            end_datetime = timezone.make_aware(
+                datetime.combine(today, datetime.max.time())
+            )
 
         # Use timezone-aware datetime range instead of naive date
         entries = VehicleEntry.objects.filter(
-            entry_time__gte=start_datetime,
-            entry_time__lte=end_datetime
+            entry_time__gte=start_datetime, entry_time__lte=end_datetime
         ).order_by("-entry_time")
 
         if number_plate_filter:
@@ -312,17 +332,23 @@ def get_vehicle_entries(request):
         entries_data = []
         for entry in entries:
             # Ensure timezone-aware formatting
-            entry_time = timezone.localtime(entry.entry_time) if timezone.is_naive(entry.entry_time) else entry.entry_time
-            exit_time = timezone.localtime(entry.exit_time) if entry.exit_time and timezone.is_naive(entry.exit_time) else entry.exit_time
-            
+            entry_time = (
+                timezone.localtime(entry.entry_time)
+                if timezone.is_naive(entry.entry_time)
+                else entry.entry_time
+            )
+            exit_time = (
+                timezone.localtime(entry.exit_time)
+                if entry.exit_time and timezone.is_naive(entry.exit_time)
+                else entry.exit_time
+            )
+
             entries_data.append(
                 {
                     "id": entry.id,
                     "number_plate": entry.number_plate,
                     "entry_time": entry_time.strftime("%H:%M"),
-                    "exit_time": exit_time.strftime("%H:%M")
-                    if exit_time
-                    else None,
+                    "exit_time": exit_time.strftime("%H:%M") if exit_time else None,
                     "total_amount": entry.total_amount or 0,
                     "is_paid": entry.is_paid,
                     "entry_image": entry.entry_image.url if entry.entry_image else None,
@@ -439,20 +465,28 @@ def get_unpaid_entries(request):
             # Convert date string to timezone-aware datetime for proper filtering
             date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
             # Create timezone-aware datetime range for the entire day
-            start_datetime = timezone.make_aware(datetime.combine(date_obj, datetime.min.time()))
-            end_datetime = timezone.make_aware(datetime.combine(date_obj, datetime.max.time()))
+            start_datetime = timezone.make_aware(
+                datetime.combine(date_obj, datetime.min.time())
+            )
+            end_datetime = timezone.make_aware(
+                datetime.combine(date_obj, datetime.max.time())
+            )
         except ValueError:
             # Fallback to today if date parsing fails
             today = timezone.now().date()
-            start_datetime = timezone.make_aware(datetime.combine(today, datetime.min.time()))
-            end_datetime = timezone.make_aware(datetime.combine(today, datetime.max.time()))
+            start_datetime = timezone.make_aware(
+                datetime.combine(today, datetime.min.time())
+            )
+            end_datetime = timezone.make_aware(
+                datetime.combine(today, datetime.max.time())
+            )
 
         # Get unpaid entries that have exited using timezone-aware datetime range
         unpaid_entries = VehicleEntry.objects.filter(
             entry_time__gte=start_datetime,
             entry_time__lte=end_datetime,
-            is_paid=False, 
-            exit_time__isnull=False
+            is_paid=False,
+            exit_time__isnull=False,
         ).order_by("-exit_time")
 
         entries_data = []
@@ -460,7 +494,7 @@ def get_unpaid_entries(request):
             # Ensure timezone-aware formatting
             entry_time = entry.entry_time
             exit_time = entry.exit_time
-            
+
             entries_data.append(
                 {
                     "id": entry.id,
@@ -468,9 +502,7 @@ def get_unpaid_entries(request):
                     "entry_time": entry_time.strftime("%H:%M"),
                     "exit_time": exit_time.strftime("%H:%M"),
                     "total_amount": entry.total_amount or 0,
-                    "duration_hours": round(
-                        (exit_time - entry_time).total_seconds() / 3600, 2
-                    ),
+                    "duration_hours": (exit_time - entry_time).total_seconds() / 3600,
                 }
             )
 
@@ -480,28 +512,36 @@ def get_unpaid_entries(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
-
-
 class FreePlateNumberView(LoginRequiredMixin, View):
     def get(self, request):
         free_plates = Cars.objects.filter(is_free=True)
-        return render(request, 'freeplatenumber.html', {'free_plates': free_plates})
-    
+        return render(request, "freeplatenumber.html", {"free_plates": free_plates})
+
     def post(self, request):
-        number_plate = request.POST.get('number_plate')
-        
+        number_plate = request.POST.get("number_plate")
+
         if Cars.objects.filter(number_plate=number_plate).exists():
-            return JsonResponse({'success': False, 'message': 'Bu raqamli avtomobil allaqachon mavjud'}, status=400)
+            return JsonResponse(
+                {"success": False, "message": "Bu raqamli avtomobil allaqachon mavjud"},
+                status=400,
+            )
         else:
             Cars.objects.create(number_plate=number_plate, is_free=True)
-            return JsonResponse({'success': True, 'message': 'Avtomobil muvaffaqiyatli qo`shildi'}, status=200)
-            
+            return JsonResponse(
+                {"success": True, "message": "Avtomobil muvaffaqiyatli qo`shildi"},
+                status=200,
+            )
+
 
 class DeleteFreePlateView(LoginRequiredMixin, View):
     def get(self, request, pk):
         Cars.objects.filter(pk=pk).delete()
-        return JsonResponse({'success': True, 'message': 'Avtomobil muvaffaqiyatli o`chirildi'}, status=200)
-    
+        return JsonResponse(
+            {"success": True, "message": "Avtomobil muvaffaqiyatli o`chirildi"},
+            status=200,
+        )
+
+
 @csrf_exempt
 @require_http_methods(["GET"])
 def get_receipt(request):
@@ -527,9 +567,7 @@ def get_receipt(request):
             "exit_time": exit_time.strftime("%H:%M") if exit_time else None,
             "total_amount": entry.total_amount or 0,
             "is_paid": entry.is_paid,
-            "duration_hours": round(
-                (exit_time - entry_time).total_seconds() / 3600, 2
-            )
+            "duration_hours": (exit_time - entry_time).total_seconds() / 3600
             if exit_time
             else 0,
         }
@@ -544,22 +582,23 @@ def get_receipt(request):
 
 class CarsManagementView(LoginRequiredMixin, View):
     def get(self, request):
-        cars = Cars.objects.all().order_by('-id')
-        
+        cars = Cars.objects.all().order_by("-id")
+
         # Calculate stats
         total_cars = cars.count()
         free_cars = cars.filter(is_free=True).count()
         special_taxi = cars.filter(is_special_taxi=True).count()
         blocked_cars = cars.filter(is_blocked=True).count()
-        
+
         context = {
-            'cars': cars,
-            'total_cars': total_cars,
-            'free_cars': free_cars,
-            'special_taxi': special_taxi,
-            'blocked_cars': blocked_cars,
+            "cars": cars,
+            "total_cars": total_cars,
+            "free_cars": free_cars,
+            "special_taxi": special_taxi,
+            "blocked_cars": blocked_cars,
         }
-        return render(request, 'cars_management.html', context)
+        return render(request, "cars_management.html", context)
+
 
 @csrf_exempt
 @require_http_methods(["POST"])
@@ -580,7 +619,8 @@ def create_car(request):
         # Check if car already exists
         if Cars.objects.filter(number_plate=number_plate).exists():
             return JsonResponse(
-                {"success": False, "error": "Bu raqamli avtomobil allaqachon mavjud"}, status=400
+                {"success": False, "error": "Bu raqamli avtomobil allaqachon mavjud"},
+                status=400,
             )
 
         car = Cars.objects.create(
@@ -604,6 +644,7 @@ def create_car(request):
         )
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=400)
+
 
 @csrf_exempt
 @require_http_methods(["PUT"])
@@ -637,6 +678,7 @@ def update_car(request, car_id):
         return JsonResponse({"success": False, "error": "Car not found"}, status=404)
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=400)
+
 
 @csrf_exempt
 @require_http_methods(["DELETE"])

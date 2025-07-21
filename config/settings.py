@@ -35,7 +35,7 @@ ALLOWED_HOSTS = ["192.168.1.128", "127.0.0.1", "localhost", "192.168.1.115"]
 
 INSTALLED_APPS = [
     "daphne",
-    "smartpark",
+    "smartpark.apps.SmartparkConfig",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -155,8 +155,8 @@ HOUR_PRICE = 4000
 
 AUTH_USER_MODEL = "smartpark.CustomUser"
 
-import pytz
-from django.utils import timezone
+# import pytz
+# from django.utils import timezone
 
-now = timezone.now()  # UTC
-tashkent_time = now.astimezone(pytz.timezone('Asia/Tashkent'))
+# now = timezone.now()  # UTC
+# tashkent_time = now.astimezone(pytz.timezone('Asia/Tashkent'))
