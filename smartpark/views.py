@@ -221,7 +221,7 @@ def receive_exit(request):
                         .order_by("-entry_time")
                         .first()
                     )
-                    if timezone.now() - latest_entry.entry_time > timedelta(minutes=MIN_TIME_BETWEEN_ENTRIES):
+                    if timezone.now() - latest_entry.entry_time <= timedelta(minutes=MIN_TIME_BETWEEN_ENTRIES):
                         channel_layer = get_channel_layer()
                         async_to_sync(channel_layer.group_send)(
                             "home_updates",

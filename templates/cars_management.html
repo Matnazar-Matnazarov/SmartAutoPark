@@ -324,10 +324,8 @@
                     ? `/api/cars/${currentCarId}/update/`
                     : '/api/cars/create/';
                 
-                const method = isEditMode ? 'PUT' : 'POST';
-                
                 const response = await fetch(url, {
-                    method: method,
+                    method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
