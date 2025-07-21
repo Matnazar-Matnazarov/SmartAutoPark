@@ -294,11 +294,8 @@ def receive_exit(request):
                                 )
                                 latest_entry.save()
 
-                                print(
-                                    f"💳 Payment calculated: {latest_entry.number_plate} = {latest_entry.total_amount} so'm"
-                                )
+                                
 
-                        print("✅ Vehicle exit updated successfully")
                         return JsonResponse(
                             {
                                 "status": "ok",
@@ -307,13 +304,11 @@ def receive_exit(request):
                             }
                         )
                     else:
-                        print("❌ No entry found for this car today")
                         return JsonResponse(
                             {"error": "No entry found for this car today"}, status=404
                         )
 
     except Exception as e:
-        print(f"❌ Error updating vehicle exit: {e}")
         return JsonResponse({"error": str(e)}, status=500)
 
 

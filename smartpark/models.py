@@ -55,10 +55,6 @@ class VehicleEntry(models.Model):
         # Calculate total amount using HOUR_PRICE
         total_amount = int(hours * HOUR_PRICE)
 
-        print(
-            f"💰 Payment calculation: {hours} hours × {HOUR_PRICE} = {total_amount} so'm"
-        )
-
         return total_amount
 
     def mark_as_paid(self):
