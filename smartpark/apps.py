@@ -7,3 +7,4 @@ class SmartparkConfig(AppConfig):
 
     def ready(self):
         """Import signals when the app is ready"""
+        import smartpark.signals
