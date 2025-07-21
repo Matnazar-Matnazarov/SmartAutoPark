@@ -88,6 +88,13 @@ def receive_entry(request):
                         ]
                         break
 
+                if Cars.objects.filter(number_plate=number_plate, is_blocked=True).exists():
+                    return JsonResponse(
+                        {
+                            "status": "error",
+                            "message": "Bu avtomobilga taqiq qo'shilgan!",
+                        }
+                    )
                 if image_data:
                     # 3. Fayl nomi: Raqam + sana (20250717_135501.jpg)
                     current_time = timezone.now()
