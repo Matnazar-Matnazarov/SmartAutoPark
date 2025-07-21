@@ -69,6 +69,20 @@ class HomeConsumer(AsyncWebsocketConsumer):
             )
         )
 
+    async def broadcast_notification(self, event):
+        """Handle broadcast notifications"""
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "notification",
+                    "title": event["title"],
+                    "message": event["message"],
+                    "notification_type": event["notification_type"],
+                    "timestamp": event["timestamp"],
+                }
+            )
+        )
+
     @database_sync_to_async
     def get_statistics(self, date_str):
         try:

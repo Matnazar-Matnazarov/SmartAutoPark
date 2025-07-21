@@ -161,9 +161,4 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
 HOUR_PRICE = 4000
 
 AUTH_USER_MODEL = "smartpark.CustomUser"
-
-# import pytz
-# from django.utils import timezone
-
-# now = timezone.now()  # UTC
-# tashkent_time = now.astimezone(pytz.timezone('Asia/Tashkent'))
+MIN_TIME_BETWEEN_ENTRIES = 2

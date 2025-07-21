@@ -5,15 +5,16 @@ from django.views import View
 from django.contrib.auth import login, logout, authenticate
 from django.shortcuts import render, redirect
 from django.utils import timezone
-from django.views.decorators.http import require_http_methods
 from django.contrib.auth.mixins import LoginRequiredMixin
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 from django.core.files.base import ContentFile
 from django.db import transaction
-from django.views.decorators.http import require_POST
-
+from django.views.decorators.http import require_POST, require_GET
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+from config.settings import MIN_TIME_BETWEEN_ENTRIES
 
 class LoginView(View):
     def get(self, request):
@@ -87,12 +88,24 @@ def receive_entry(request):
                             0
                         ]
                         break
-
-                if Cars.objects.filter(number_plate=number_plate, is_blocked=True).exists():
+                car = Cars.objects.filter(number_plate=number_plate, is_blocked=True).first()
+                if car:
+                    channel_layer = get_channel_layer()
+                    async_to_sync(channel_layer.group_send)(
+                                "home_updates",
+                                {
+                                    "type": "broadcast_notification",
+                                    "title": "🚫 Bloklangan avtomobil",
+                                    "message": f"Avtomobil {number_plate} bloklangan! Chiqish taqiqlanadi.",
+                                    "notification_type": "error",
+                                    "timestamp": timezone.now().isoformat(),
+                                },
+                            )
+                            
                     return JsonResponse(
                         {
                             "status": "error",
-                            "message": "Bu avtomobilga taqiq qo'shilgan!",
+                            "message": f"Bu avtomobilga taqiq qo'shilgan! {number_plate}",
                         }
                     )
                 if image_data:
@@ -105,6 +118,24 @@ def receive_entry(request):
                     image_file = ContentFile(image_data, name=filename)
 
                     # 5. Bazaga yozamiz - entry_time auto_now_add=True bo'lgani uchun o'rnatmaymiz
+                    if VehicleEntry.objects.filter(number_plate=number_plate, entry_time__isnull=True).exists():
+                        channel_layer = get_channel_layer()
+                        async_to_sync(channel_layer.group_send)(
+                                    "home_updates",
+                                    {
+                                        "type": "broadcast_notification",
+                                        "title": "🚫 Avtomobil oldin kiritilgan",
+                                        "message": f"Avtomobil {number_plate} oldin kiritilgan!",
+                                        "notification_type": "warning",
+                                        "timestamp": timezone.now().isoformat(),
+                                    },
+                                )
+                        return JsonResponse(
+                            {
+                                "status": "error",
+                                "message": f"Bu avtomobilga taqiq qo'shilgan! {number_plate}",
+                            }
+                        )
                     entry = VehicleEntry.objects.create(
                         number_plate=number_plate,
                         entry_image=image_file,
@@ -190,8 +221,51 @@ def receive_exit(request):
                         .order_by("-entry_time")
                         .first()
                     )
+                    if timezone.now() - latest_entry.entry_time > timedelta(minutes=MIN_TIME_BETWEEN_ENTRIES):
+                        channel_layer = get_channel_layer()
+                        async_to_sync(channel_layer.group_send)(
+                            "home_updates",
+                            {
+                                "type": "broadcast_notification",
+                                "title": "🚫 Avtomobil oldin kiritilgan",
+                                "message": f"Avtomobil {number_plate} oldin kiritilgan!",
+                                "notification_type": "warning",
+                                "timestamp": timezone.now().isoformat(),
+                            },
+                        )
+                        return JsonResponse(
+                            {
+                                "status": "error",
+                                "message": f"Avtomobil {number_plate} oldin kiritilgan!",
+                            }
+                        )
 
-                    if latest_entry:
+                    if latest_entry and not latest_entry.exit_time:
+                        # Check if car is blocked
+                        if car and car.is_blocked:
+                            # Send real-time notification about blocked car
+                            from channels.layers import get_channel_layer
+                            from asgiref.sync import async_to_sync
+                            
+                            channel_layer = get_channel_layer()
+                            async_to_sync(channel_layer.group_send)(
+                                "home_updates",
+                                {
+                                    "type": "broadcast_notification",
+                                    "title": "🚫 Bloklangan avtomobil",
+                                    "message": f"Avtomobil {number_plate} bloklangan! Chiqish taqiqlanadi.",
+                                    "notification_type": "error",
+                                    "timestamp": timezone.now().isoformat(),
+                                },
+                            )
+                            
+                            return JsonResponse(
+                                {
+                                    "status": "error",
+                                    "message": f"Bu avtomobilga taqiq qo'shilgan! {number_plate}",
+                                }
+                            )
+                        
                         if car and car.is_free and not car.is_blocked:
                             latest_entry.exit_image = image_file
                             latest_entry.total_amount = 0
@@ -247,7 +321,7 @@ def receive_exit(request):
 
 
 @csrf_exempt
-@require_http_methods(["GET"])
+@require_GET
 def get_statistics(request):
     """Get statistics for a specific date"""
     date_str = request.GET.get("date", timezone.now().date().isoformat())
@@ -291,7 +365,7 @@ def get_statistics(request):
 
 
 @csrf_exempt
-@require_http_methods(["GET"])
+@require_GET
 def get_vehicle_entries(request):
     """Get vehicle entries for a specific date with filters"""
     try:
@@ -376,7 +450,7 @@ def get_vehicle_entries(request):
 
 
 @csrf_exempt
-@require_http_methods(["POST"])
+@require_POST
 def mark_as_paid(request):
     """Mark a vehicle entry as paid"""
     try:
@@ -395,7 +469,7 @@ def mark_as_paid(request):
 
 
 @csrf_exempt
-@require_http_methods(["POST"])
+@require_POST
 def add_car(request):
     """Add or update a car with boolean flags"""
     try:
@@ -441,7 +515,7 @@ def add_car(request):
 
 
 @csrf_exempt
-@require_http_methods(["POST"])
+@require_POST
 def block_car(request):
     """Block a car by number plate"""
     try:
@@ -465,7 +539,7 @@ def block_car(request):
 
 
 @csrf_exempt
-@require_http_methods(["GET"])
+@require_GET
 def get_unpaid_entries(request):
     """Get unpaid entries for receipt printing"""
     try:
@@ -553,7 +627,7 @@ class DeleteFreePlateView(LoginRequiredMixin, View):
 
 
 @csrf_exempt
-@require_http_methods(["GET"])
+@require_GET
 def get_receipt(request):
     """Get receipt data for a specific entry"""
     try:
@@ -611,7 +685,7 @@ class CarsManagementView(LoginRequiredMixin, View):
 
 
 @csrf_exempt
-@require_http_methods(["POST"])
+@require_POST
 def create_car(request):
     """Create a new car"""
     try:
@@ -657,7 +731,7 @@ def create_car(request):
 
 
 @csrf_exempt
-@require_http_methods(["PUT"])
+@require_POST
 def update_car(request, car_id):
     """Update an existing car"""
     try:
@@ -691,7 +765,7 @@ def update_car(request, car_id):
 
 
 @csrf_exempt
-@require_http_methods(["DELETE"])
+@require_POST
 def delete_car(request, car_id):
     """Delete a car"""
     try:
