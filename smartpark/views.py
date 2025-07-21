@@ -118,7 +118,7 @@ def receive_entry(request):
                     image_file = ContentFile(image_data, name=filename)
 
                     # 5. Bazaga yozamiz - entry_time auto_now_add=True bo'lgani uchun o'rnatmaymiz
-                    if VehicleEntry.objects.filter(number_plate=number_plate, entry_time__isnull=True).exists():
+                    if VehicleEntry.objects.filter(number_plate=number_plate, exit_time__isnull=True).exists():
                         channel_layer = get_channel_layer()
                         async_to_sync(channel_layer.group_send)(
                                     "home_updates",
@@ -244,8 +244,6 @@ def receive_exit(request):
                         # Check if car is blocked
                         if car and car.is_blocked:
                             # Send real-time notification about blocked car
-                            from channels.layers import get_channel_layer
-                            from asgiref.sync import async_to_sync
                             
                             channel_layer = get_channel_layer()
                             async_to_sync(channel_layer.group_send)(
@@ -304,8 +302,19 @@ def receive_exit(request):
                             }
                         )
                     else:
+                        channel_layer = get_channel_layer()
+                        async_to_sync(channel_layer.group_send)(
+                                "home_updates",
+                                {
+                                    "type": "broadcast_notification",
+                                    "title": "🚫 Avtomobil bilan kirish bo'lmagan",
+                                    "message": f"Avtomobil {number_plate} bilan kirish bo'lmagan!",
+                                    "notification_type": "error",
+                                    "timestamp": timezone.now().isoformat(),
+                                },
+                            )
                         return JsonResponse(
-                            {"error": "No entry found for this car today"}, status=404
+                            {"error": "Avtomobil bilan kirish bo'lmagan"}, status=404
                         )
 
     except Exception as e:
