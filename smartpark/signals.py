@@ -77,6 +77,78 @@ def vehicle_entry_updated(sender, instance, created, **kwargs):
             "number_plate": instance.number_plate,
         },
     )
+    
+    # Send latest unpaid entry update for unpaid entries page
+    if instance.exit_time and not instance.is_paid:
+        # Get the latest unpaid entry
+        latest_unpaid = (
+            VehicleEntry.objects.filter(
+                entry_time__gte=start_datetime,
+                entry_time__lte=end_datetime,
+                is_paid=False,
+                exit_time__isnull=False,
+            )
+            .order_by("-exit_time")
+            .first()
+        )
+        
+        if latest_unpaid:
+            latest_unpaid_data = {
+                "id": latest_unpaid.id,
+                "number_plate": latest_unpaid.number_plate,
+                "entry_time": latest_unpaid.entry_time.strftime("%H:%M"),
+                "exit_time": latest_unpaid.exit_time.strftime("%H:%M"),
+                "total_amount": latest_unpaid.total_amount or 0,
+                "duration_hours": (latest_unpaid.exit_time - latest_unpaid.entry_time).total_seconds() / 3600,
+                "entry_image": latest_unpaid.entry_image.url if latest_unpaid.entry_image else None,
+                "exit_image": latest_unpaid.exit_image.url if latest_unpaid.exit_image else None,
+            }
+        else:
+            latest_unpaid_data = None
+            
+        async_to_sync(channel_layer.group_send)(
+            "home_updates",
+            {
+                "type": "latest_unpaid_entry_update",
+                "data": latest_unpaid_data,
+            },
+        )
+    
+    # Handle when entry is marked as paid
+    if not created and instance.is_paid and instance.exit_time:
+        # Get the latest unpaid entry after this one was marked as paid
+        latest_unpaid = (
+            VehicleEntry.objects.filter(
+                entry_time__gte=start_datetime,
+                entry_time__lte=end_datetime,
+                is_paid=False,
+                exit_time__isnull=False,
+            )
+            .order_by("-exit_time")
+            .first()
+        )
+        
+        if latest_unpaid:
+            latest_unpaid_data = {
+                "id": latest_unpaid.id,
+                "number_plate": latest_unpaid.number_plate,
+                "entry_time": latest_unpaid.entry_time.strftime("%H:%M"),
+                "exit_time": latest_unpaid.exit_time.strftime("%H:%M"),
+                "total_amount": latest_unpaid.total_amount or 0,
+                "duration_hours": (latest_unpaid.exit_time - latest_unpaid.entry_time).total_seconds() / 3600,
+                "entry_image": latest_unpaid.entry_image.url if latest_unpaid.entry_image else None,
+                "exit_image": latest_unpaid.exit_image.url if latest_unpaid.exit_image else None,
+            }
+        else:
+            latest_unpaid_data = None
+            
+        async_to_sync(channel_layer.group_send)(
+            "home_updates",
+            {
+                "type": "latest_unpaid_entry_update",
+                "data": latest_unpaid_data,
+            },
+        )
 
 
 @receiver(post_delete, sender=VehicleEntry)

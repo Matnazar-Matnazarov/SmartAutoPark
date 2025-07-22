@@ -780,3 +780,8 @@ def delete_car(request, car_id):
         return JsonResponse({"success": False, "error": "Car not found"}, status=404)
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+
+class UnpaidEntriesView(LoginRequiredMixin, View):
+    def get(self, request):
+            return render(request, "unpaid_entries.html")

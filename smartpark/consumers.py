@@ -68,6 +68,19 @@ class HomeConsumer(AsyncWebsocketConsumer):
                 }
             )
         )
+        
+        # If this is a payment completion, also send latest unpaid entry update
+        if event.get("action") == "payment_completed":
+            today = timezone.now().date().isoformat()
+            latest_unpaid = await self.get_latest_unpaid_entry(today)
+            await self.send(
+                text_data=json.dumps(
+                    {
+                        "type": "latest_unpaid_entry_update",
+                        "data": latest_unpaid,
+                    }
+                )
+            )
 
     async def broadcast_notification(self, event):
         """Handle broadcast notifications"""
@@ -79,6 +92,17 @@ class HomeConsumer(AsyncWebsocketConsumer):
                     "message": event["message"],
                     "notification_type": event["notification_type"],
                     "timestamp": event["timestamp"],
+                }
+            )
+        )
+
+    async def latest_unpaid_entry_update(self, event):
+        """Handle latest unpaid entry updates"""
+        await self.send(
+            text_data=json.dumps(
+                {
+                    "type": "latest_unpaid_entry_update",
+                    "data": event["data"],
                 }
             )
         )
