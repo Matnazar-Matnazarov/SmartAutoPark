@@ -394,9 +394,9 @@
 
 
     <!-- Barcha kirganlar -->
-    <section class="table-container max-w-6xl mx-auto">
-      <div class="p-6 border-b border-gray-200">
-        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+    <section class="table-container max-w-8xl mx-auto">
+      <div class="p-8 border-b border-gray-200">
+        <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
           <div class="flex items-center space-x-3">
             <div class="p-2 bg-gradient-to-r from-green-500 to-blue-600 rounded-lg">
               <i class="fas fa-list text-white"></i>
@@ -406,16 +406,16 @@
               <p class="text-gray-600 text-sm">Kunlik kirish va chiqish ma'lumotlari</p>
             </div>
           </div>
-          <div class="flex flex-col sm:flex-row gap-3 items-stretch">
+          <div class="flex flex-col sm:flex-row gap-4 items-stretch flex-wrap">
             <!-- Date Filter -->
-            <div class="flex gap-2">
+            <div class="flex gap-3">
               <input type="date" id="date-filter" class="input-field">
               <button onclick="loadTodayData()" class="primary-btn px-4 py-2 text-sm">
                 <i class="fas fa-sync-alt mr-1"></i>Bugun
               </button>
             </div>
             <!-- Filter controls -->
-            <div class="flex gap-2">
+            <div class="flex gap-3">
               <input type="text" id="number-filter" placeholder="Raqam bo'yicha qidirish..." 
                      class="input-field w-48">
               <select id="status-filter" class="input-field">
@@ -428,6 +428,12 @@
             </div>
             <button onclick="loadUnpaidEntries()" class="payment-btn px-6 py-3">
               <i class="fas fa-exclamation-triangle mr-2"></i>To'lanmaganlar
+            </button>
+            <button onclick="exportData()" class="primary-btn px-4 py-2 text-sm">
+              <i class="fas fa-download mr-2"></i>Yuklab olish
+            </button>
+            <button onclick="refreshData()" class="success-btn px-4 py-2 text-sm">
+              <i class="fas fa-sync-alt mr-2"></i>Yangilash
             </button>
           </div>
         </div>
@@ -468,14 +474,6 @@
           <p class="text-sm text-gray-600">
             <span id="entries-count">0</span> ta avtomobil topildi
           </p>
-          <div class="flex gap-2">
-            <button onclick="exportData()" class="primary-btn px-4 py-2 text-sm">
-              <i class="fas fa-download mr-2"></i>Yuklab olish
-            </button>
-            <button onclick="refreshData()" class="success-btn px-4 py-2 text-sm">
-              <i class="fas fa-sync-alt mr-2"></i>Yangilash
-            </button>
-          </div>
         </div>
       </div>
     </section>
