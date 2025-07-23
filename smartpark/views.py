@@ -42,14 +42,15 @@ class LogoutView(LoginRequiredMixin, View):
     def post(self, request):
         logout(request)
         return redirect("login")
+    
+    def get(self, request):
+        logout(request)
+        return redirect("login")
 
 
 class HomeView(LoginRequiredMixin, View):
     def get(self, request):
-        if request.user.is_authenticated:
-            return render(request, "home.html")
-        else:
-            return redirect("login")
+        return render(request, "home.html")
 
 
 @csrf_exempt

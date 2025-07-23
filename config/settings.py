@@ -35,6 +35,7 @@ ALLOWED_HOSTS = [
     "192.168.1.115",
     "0.0.0.0",
     "smartautopark.uz",
+    "192.168.0.16",
 ]
 
 
@@ -139,6 +140,9 @@ USE_L10N = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
+
+LOGOUT_REDIRECT_URL = "/login/"
+LOGIN_REDIRECT_URL = "/home/"
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
