@@ -18,7 +18,8 @@ from .views import (
     CarsManagementView,
     create_car,
     update_car,
-    delete_car
+    delete_car,
+    UnpaidEntriesView
 )
 from django.conf import settings
 from django.conf.urls.static import static
@@ -48,6 +49,7 @@ urlpatterns = (
         path("api/receipt/", get_receipt, name="get_receipt"),
         path('free-plate-number/', FreePlateNumberView.as_view(), name='free_plate_number'),
         path('delete-free-plate/<int:pk>/', DeleteFreePlateView.as_view(), name='delete_free_plate'),
+        path('unpaid-entries/', UnpaidEntriesView.as_view(), name='unpaid_entries'),
 
     ]
     + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
