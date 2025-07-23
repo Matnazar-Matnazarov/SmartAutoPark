@@ -19,6 +19,7 @@ from .views import (
     create_car,
     update_car,
     delete_car,
+    upload_license,
     UnpaidEntriesView
 )
 from django.conf import settings
@@ -39,6 +40,7 @@ urlpatterns = (
         path("api/cars/create/", create_car, name="create_car"),
         path("api/cars/<int:car_id>/update/", update_car, name="update_car"),
         path("api/cars/<int:car_id>/delete/", delete_car, name="delete_car"),
+        path("api/cars/upload-license/", upload_license, name="upload_license"),
         # New API endpoints
         path("api/statistics/", get_statistics, name="get_statistics"),
         path("api/vehicle-entries/", get_vehicle_entries, name="get_vehicle_entries"),

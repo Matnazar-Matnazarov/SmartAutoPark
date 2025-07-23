@@ -73,6 +73,8 @@ class Cars(models.Model):
     is_free = models.BooleanField(default=False)
     is_special_taxi = models.BooleanField(default=False)
     is_blocked = models.BooleanField(default=False)
+    position = models.CharField(max_length=100, blank=True, null=True, help_text="Lavozim (bepul avtomobillar uchun)")
+    license_file = models.FileField(upload_to="licenses/", blank=True, null=True, help_text="Litsenziya fayli (maxsus taksi uchun)")
 
     def __str__(self):
         status = []

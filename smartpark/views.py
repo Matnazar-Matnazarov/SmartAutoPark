@@ -480,13 +480,24 @@ def add_car(request):
     try:
         data = json.loads(request.body)
         number_plate = data.get("number_plate")
-        is_free = data.get("is_free", False)
-        is_special_taxi = data.get("is_special_taxi", False)
+        car_type = data.get("car_type", "")  # "free", "special_taxi", "blocked", "normal"
+        position = data.get("position", "")
         is_blocked = data.get("is_blocked", False)
 
         if not number_plate:
             return JsonResponse(
                 {"success": False, "error": "Number plate is required"}, status=400
+            )
+
+        # Set flags based on car type
+        is_free = car_type == "free"
+        is_special_taxi = car_type == "special_taxi"
+        is_blocked = car_type == "blocked" or is_blocked
+
+        # Validate position for free cars
+        if is_free and not position:
+            return JsonResponse(
+                {"success": False, "error": "Bepul avtomobillar uchun lavozim kiritish majburiy"}, status=400
             )
 
         car, created = Cars.objects.get_or_create(
@@ -495,6 +506,7 @@ def add_car(request):
                 "is_free": is_free,
                 "is_special_taxi": is_special_taxi,
                 "is_blocked": is_blocked,
+                "position": position if is_free else None,
             },
         )
 
@@ -502,6 +514,7 @@ def add_car(request):
             car.is_free = is_free
             car.is_special_taxi = is_special_taxi
             car.is_blocked = is_blocked
+            car.position = position if is_free else None
             car.save()
 
         return JsonResponse(
@@ -512,6 +525,7 @@ def add_car(request):
                     "is_free": car.is_free,
                     "is_special_taxi": car.is_special_taxi,
                     "is_blocked": car.is_blocked,
+                    "position": car.position,
                 },
             }
         )
@@ -696,8 +710,8 @@ def create_car(request):
     try:
         data = json.loads(request.body)
         number_plate = data.get("number_plate")
-        is_free = data.get("is_free", False)
-        is_special_taxi = data.get("is_special_taxi", False)
+        car_type = data.get("car_type", "")  # "free", "special_taxi", "blocked", "normal"
+        position = data.get("position", "")
         is_blocked = data.get("is_blocked", False)
 
         if not number_plate:
@@ -712,11 +726,23 @@ def create_car(request):
                 status=400,
             )
 
+        # Set flags based on car type
+        is_free = car_type == "free"
+        is_special_taxi = car_type == "special_taxi"
+        is_blocked = car_type == "blocked" or is_blocked
+
+        # Validate position for free cars
+        if is_free and not position:
+            return JsonResponse(
+                {"success": False, "error": "Bepul avtomobillar uchun lavozim kiritish majburiy"}, status=400
+            )
+
         car = Cars.objects.create(
             number_plate=number_plate,
             is_free=is_free,
             is_special_taxi=is_special_taxi,
             is_blocked=is_blocked,
+            position=position if is_free else None,
         )
 
         return JsonResponse(
@@ -728,6 +754,7 @@ def create_car(request):
                     "is_free": car.is_free,
                     "is_special_taxi": car.is_special_taxi,
                     "is_blocked": car.is_blocked,
+                    "position": car.position,
                 },
             }
         )
@@ -741,14 +768,24 @@ def update_car(request, car_id):
     """Update an existing car"""
     try:
         data = json.loads(request.body)
-        is_free = data.get("is_free", False)
-        is_special_taxi = data.get("is_special_taxi", False)
+        car_type = data.get("car_type", "")  # "free", "special_taxi", "blocked", "normal"
+        position = data.get("position", "")
         is_blocked = data.get("is_blocked", False)
 
         car = Cars.objects.get(id=car_id)
-        car.is_free = is_free
-        car.is_special_taxi = is_special_taxi
-        car.is_blocked = is_blocked
+        
+        # Set flags based on car type
+        car.is_free = car_type == "free"
+        car.is_special_taxi = car_type == "special_taxi"
+        car.is_blocked = car_type == "blocked" or is_blocked
+        
+        # Validate position for free cars
+        if car_type == "free" and not position:
+            return JsonResponse(
+                {"success": False, "error": "Bepul avtomobillar uchun lavozim kiritish majburiy"}, status=400
+            )
+        
+        car.position = position if car_type == "free" else None
         car.save()
 
         return JsonResponse(
@@ -760,6 +797,7 @@ def update_car(request, car_id):
                     "is_free": car.is_free,
                     "is_special_taxi": car.is_special_taxi,
                     "is_blocked": car.is_blocked,
+                    "position": car.position,
                 },
             }
         )
@@ -779,6 +817,34 @@ def delete_car(request, car_id):
         return JsonResponse({"success": True, "car_id": car_id})
     except Cars.DoesNotExist:
         return JsonResponse({"success": False, "error": "Car not found"}, status=404)
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+
+@csrf_exempt
+@require_POST
+def upload_license(request):
+    """Upload license file for special taxi"""
+    try:
+        if 'license_file' not in request.FILES:
+            return JsonResponse({"success": False, "error": "Fayl yuklanmadi"}, status=400)
+        
+        license_file = request.FILES['license_file']
+        car_id = request.POST.get('car_id')
+        
+        if not car_id:
+            return JsonResponse({"success": False, "error": "Avtomobil ID kerak"}, status=400)
+        
+        car = Cars.objects.get(id=car_id)
+        car.license_file = license_file
+        car.save()
+        
+        return JsonResponse({
+            "success": True,
+            "license_url": car.license_file.url if car.license_file else None
+        })
+    except Cars.DoesNotExist:
+        return JsonResponse({"success": False, "error": "Avtomobil topilmadi"}, status=404)
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=400)
 
