@@ -25,16 +25,14 @@ from .views import (
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.staticfiles.urls import staticfiles_urlpatterns
-from django.views.generic import RedirectView
 
 urlpatterns = (
     [
-        path("", RedirectView.as_view(url="home/", permanent=True)),
         path("receive-entry/", receive_entry),
         path("receive-exit/", receive_exit),
         path("login/", LoginView.as_view(), name="login"),
         path("logout/", LogoutView.as_view(), name="logout"),
-        path("home/", HomeView.as_view(), name="home"),
+        path("", HomeView.as_view(), name="home"),
         # Cars management
         path("cars/", CarsManagementView.as_view(), name="cars_management"),
         path("api/cars/create/", create_car, name="create_car"),

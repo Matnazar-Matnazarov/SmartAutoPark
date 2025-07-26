@@ -142,7 +142,7 @@ USE_L10N = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 LOGOUT_REDIRECT_URL = "/login/"
-LOGIN_REDIRECT_URL = "/home/"
+LOGIN_REDIRECT_URL = "/"
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
